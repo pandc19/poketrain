@@ -9,7 +9,7 @@ How a change gets from a branch to production. For what production is made of (s
 One long-lived branch, `main`. It is always deployable, and **every merge to `main` deploys to production**: Coolify watches the repo and rebuilds on each push. There is no staging environment and no release tag. Work is done on short-lived branches and reaches `main` only through a pull request.
 
 ```
-  feature/xyz  ──PR + CI──▶  main  ──push──▶  Coolify builds the Dockerfile on the droplet
+  feat/xyz  ──PR + CI──▶  main  ──push──▶  Coolify builds the Dockerfile on the droplet
                                               └─▶ container starts: prisma migrate deploy, then the app
 ```
 
@@ -17,8 +17,8 @@ One long-lived branch, `main`. It is always deployable, and **every merge to `ma
 - Nobody pushes to `main` directly, including for a one-line fix. Branch, PR, merge.
 - A PR can merge only when the `check` job of [CI](../.github/workflows/ci.yml) passes (lint, type-check, tests).
 - Merges are **squash** merges, so `main` has one commit per PR and a revert is one click.
-- Branch names: `feature/…`, `fix/…`, `chore/…`, `docs/…`. Delete the branch after the merge.
-- Commit messages say what changed for the user, in plain words, as the existing history does.
+- Branch names: `type/short-description` in kebab-case, cut from `main`, with the same types as commits (below). Delete the branch after the merge.
+- Commit messages and PR titles follow the [conventions](#commit-and-pr-conventions) below.
 
 ---
 
@@ -26,20 +26,48 @@ One long-lived branch, `main`. It is always deployable, and **every merge to `ma
 
 ```bash
 git checkout main && git pull origin main
-git checkout -b feature/my-change
+git checkout -b feat/my-change
 
 # work, commit, push
 git add <files>
-git commit -m "Roster: describe the change"
-git push -u origin feature/my-change
+git commit -m "feat: describe the change"
+git push -u origin feat/my-change
 
 # open the PR on GitHub (or: gh pr create), wait for the check, squash and merge
 
 git checkout main && git pull origin main
-git branch -d feature/my-change
+git branch -d feat/my-change
 ```
 
 After the merge, watch the deployment in Coolify (Deployments tab). A deploy takes roughly 3-8 minutes: most of it is `next build` on a small droplet.
+
+---
+
+## Commit and PR conventions
+
+Format: `type: short description`, at most 72 characters, imperative mood, lowercase after the colon, no period.
+
+| Type | Use for |
+|------|---------|
+| `feat` | a new feature or a visible improvement |
+| `fix` | a bug fix |
+| `refactor` | a code change with no behaviour change |
+| `docs` | documentation only |
+| `test` | adding or fixing tests |
+| `chore` | dependencies, tooling, config, build speed |
+| `ci` | CI workflow changes |
+
+```
+feat: show the nature on breeder cards
+fix: stop stale cards piling up when switching Pokédex tabs
+chore: speed up the Docker build with cache mounts
+```
+
+- **Branches** use the same type as their prefix: `feat/breeder-nature`, `fix/dex-tab-cards`, `chore/docker-build-speedup`.
+- **A PR title is the commit message on `main`**: squash merges use the title plus the PR number (`feat: show the nature on breeder cards (#7)`), so write the title in the format above. Commits inside the branch follow it too, but the title is what stays.
+- **PR descriptions** use the [template](../.github/pull_request_template.md): what changed and why, how it was checked, and anything that needs care at deploy (a migration, a Dockerfile change).
+- One PR does one thing. Keep unrelated changes in separate PRs.
+- A commit that adds a migration says so in the PR description, since it runs on deploy while the old version is still serving.
 
 ---
 
