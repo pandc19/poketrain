@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { PokeBallIcon, PokeBallMark } from './PokeBallIcon';
 import { PokemonInfoDialog } from './PokemonInfoDialog';
 import { ScrollTopButton } from './ScrollTopButton';
 import { SearchInput } from './SearchInput';
@@ -88,27 +89,38 @@ export function ExclusivesBoard({
       {list.map((tile) => {
         const name = lang === 'en' ? tile.nameEn : tile.nameEs;
         return (
-          <li key={`${tile.dex}-${tile.form ?? ''}`}>
+          <li key={`${tile.dex}-${tile.form ?? ''}`} className="min-h-[124px]">
             <button
               type="button"
               onClick={() => setOpen({ tile, own })}
               title={t('{name}: open details', { name })}
-              className={`flex w-full flex-col items-center rounded-lg border px-1 py-1.5 hover:border-muted ${
-                tile.caught ? 'border-done/50 bg-done/5' : 'border-line bg-surface'
+              className={`relative isolate flex h-full w-full flex-col items-center overflow-hidden rounded-lg border px-1 py-1.5 hover:border-muted ${
+                tile.caught ? (tile.have ? 'border-line bg-surface-2' : 'border-dashed border-line bg-surface opacity-80') : 'border-line bg-surface'
               }`}
             >
-              <Sprite src={tile.spriteUrl} alt="" size={56} silhouette={!tile.caught && own} />
-              <span className="mt-0.5 w-full truncate text-center text-[11px]">{name}</span>
-              {tile.form && (
-                <span className="w-full truncate text-center text-[9px] text-muted">{FORM_LABELS[tile.form] ? pick(FORM_LABELS[tile.form], lang) : tile.form}</span>
+              {tile.caught && (
+                <PokeBallMark className="pointer-events-none absolute left-1/2 top-3 -z-10 h-16 w-16 -translate-x-1/2 text-ink/[0.05]" />
               )}
-              <span
-                className={`mt-0.5 text-[10px] font-semibold ${
-                  tile.caught ? (tile.have ? 'text-done' : 'text-pending') : 'text-muted'
-                }`}
-              >
-                {tile.caught ? (tile.have ? `✓ ${t('have')}` : t('caught')) : own ? t('missing') : t('trade / raid')}
+              <span className={`absolute left-1 top-1 ${tile.caught ? '' : 'text-muted/70'}`} title={tile.caught ? t('Caught') : t('Catch')}>
+                <PokeBallIcon caught={tile.caught} size={18} />
               </span>
+              <Sprite src={tile.spriteUrl} alt="" size={56} silhouette={!tile.caught && own} />
+              <span className="mt-0.5 w-full truncate text-center text-[11px] leading-4">{name}</span>
+              {/* Always there, so every tile is the same height. */}
+              <span className="h-3 w-full truncate text-center text-[9px] leading-3 text-muted">
+                {tile.form ? (FORM_LABELS[tile.form] ? pick(FORM_LABELS[tile.form], lang) : tile.form) : ''}
+              </span>
+              {tile.caught ? (
+                <span
+                  className={`mt-0.5 rounded px-1.5 text-[10px] font-bold leading-4 ${
+                    tile.have ? 'bg-done text-bg' : 'border border-pending/60 text-pending'
+                  }`}
+                >
+                  {tile.have ? t('Have') : t('not in my box')}
+                </span>
+              ) : (
+                <span className="mt-0.5 text-[10px] font-semibold text-muted">{own ? t('missing') : t('trade / raid')}</span>
+              )}
             </button>
           </li>
         );

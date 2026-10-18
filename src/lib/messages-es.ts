@@ -458,7 +458,6 @@ export const ES: Record<string, string> = {
   'female': 'hembra',
   'from {name}': 'de {name}',
   'green': 'verde',
-  'have': 'lo tengo',
   'hidden': 'oculta',
   'in the party.': 'en el equipo.',
   'is already done,': 'ya está hecho,',

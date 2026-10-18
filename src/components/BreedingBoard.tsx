@@ -517,7 +517,16 @@ export function BreedingBoard({
     const sex = pick ? (pick.gender === 'any' ? undefined : pick.gender) : item?.gender;
     return (
       <li key={role} className="rounded-lg border border-line p-3 text-xs">
-        <p className="mb-1 text-xs font-medium text-muted">{role}</p>
+        <div className="mb-1 flex items-start justify-between gap-2">
+          <p className="text-xs font-medium text-muted">{role}</p>
+          <span
+            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+              have === 'ready' ? 'bg-done/15 text-done' : have === 'caught' ? 'bg-star/15 text-star' : 'bg-pending/15 text-pending'
+            }`}
+          >
+            {have === 'ready' ? t('Ready') : have === 'caught' ? t('Check it') : t('You need it')}
+          </span>
+        </div>
         <div className="flex items-center gap-2">
           {pic(species, 56)}
           <div className="min-w-0">
@@ -529,8 +538,19 @@ export function BreedingBoard({
             {pick && (
               <p className="text-muted">
                 {sourceLabel(pick)}
-                {pick.perfect.length > 0 ? ` · ${t('perfect')}: ${statList(pick.perfect)}` : ''}
               </p>
+            )}
+            {pick && (
+              <ul className="mt-1 flex flex-wrap items-center gap-1" aria-label={t('perfect IVs')}>
+                <li className={`text-[10px] font-semibold ${pick.perfect.length >= 5 ? 'text-star' : pick.perfect.length > 0 ? 'text-done' : 'text-muted'}`}>
+                  {pick.perfect.length}/6 {t('perfect')}
+                </li>
+                {pick.perfect.map((s) => (
+                  <li key={s} className="rounded-full border border-done/40 bg-done/15 px-1.5 text-[10px] font-semibold leading-4 text-done">
+                    {STAT_LABELS[s][lang]}
+                  </li>
+                ))}
+              </ul>
             )}
             {pick && pickTraits(pick) && <p className="text-muted">{pickTraits(pick)}</p>}
             {pick?.id && pick.source === 'breeder' && (
@@ -539,13 +559,6 @@ export function BreedingBoard({
               </button>
             )}
           </div>
-          <span
-            className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-              have === 'ready' ? 'bg-done/15 text-done' : have === 'caught' ? 'bg-star/15 text-star' : 'bg-pending/15 text-pending'
-            }`}
-          >
-            {have === 'ready' ? t('Ready') : have === 'caught' ? t('Check it') : t('You need it')}
-          </span>
         </div>
         {item && have !== 'ready' && (
           <p className={`mt-1 ${have === 'caught' ? 'text-star' : 'text-pending'}`}>{describe(goal, item)}</p>
