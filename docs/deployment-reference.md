@@ -70,7 +70,7 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 - Resource `shared-postgres` (PostgreSQL 18, the same major version as local development and the dump). Not publicly exposed.
 - One login role and one database per app. Each role is `NOSUPERUSER NOCREATEDB NOCREATEROLE`, owns only its database, and `CONNECT` on every database is revoked from `PUBLIC`, so an app role cannot connect to another app's database.
 - `poketrain_app` owns every object in `poketrain` (it runs the migrations). `\dt` in `poketrain` should list only `poketrain_app`-owned tables.
-- The data came from Neon with `pg_restore --no-owner --no-privileges --role=poketrain_app`. [database-transfer.md](database-transfer.md) describes the older local ↔ Neon workflow and is kept for the local database.
+- The data came from Neon with `pg_restore --no-owner --no-privileges --role=poketrain_app`. The Neon database is no longer used. To copy production to a local database (through an SSH tunnel), see [database-transfer.md](database-transfer.md).
 - The app and Postgres must share a Docker network (Coolify's default destination). If the app cannot resolve the host, check both resources use the same destination.
 
 ### Backups and restore
