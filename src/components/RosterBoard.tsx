@@ -75,6 +75,12 @@ export function RosterBoard({
     levelLow: t('Level (low to high)'),
   };
 
+  const selectedKey = `roster-selected:${gameId}`;
+  // A Pokémon to turn the list to once it has it: one just added, or the one left last.
+  const [reveal, setReveal] = useState<string | null>(null);
+  const [pickedId, setSelectedId] = useState<string | null>(
+    initial.some((p) => p.id === initialSelectedId) ? initialSelectedId : null
+  );
   const [roster, setRoster] = useState(initial);
   const [slots, setSlots] = useState(initialTeam);
   const [training, setTraining] = useState(initialTraining);
@@ -95,6 +101,17 @@ export function RosterBoard({
       if (saved && SORTS.includes(saved)) setSort(saved);
       if (localStorage.getItem('roster-view') === 'team') setView('team');
     } catch {}
+    // Coming back to the page shows the Pokémon you were last on, on its page of the list. A link naming one wins.
+    // Done here so the list is already in the saved sort when the page is worked out.
+    try {
+      const last = sessionStorage.getItem(selectedKey);
+      if (!initialSelectedId && last && initial.some((p) => p.id === last)) {
+        setSelectedId(last);
+        setReveal(last);
+      }
+    } catch {}
+    // Mount only: it reads what the last visit left.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // A link with ?p= opens that Pokémon once; the address is then cleaned, so coming back to the page later
   // (a restored tab on a tablet, say) starts fresh instead of on the page and Pokémon left last.
@@ -106,9 +123,6 @@ export function RosterBoard({
     return index >= 0 ? Math.floor(index / PAGE_SIZE) : 0;
   });
   // Until the player picks one (or the address names one), the first in the current sort is shown.
-  const [pickedId, setSelectedId] = useState<string | null>(
-    initial.some((p) => p.id === initialSelectedId) ? initialSelectedId : null
-  );
   const [removing, setRemoving] = useState<RosterView | null>(null);
   const [auditing, setAuditing] = useState<string | null>(null);
   // A saved audit is shown by default; these are the ones the player hid.
@@ -149,6 +163,9 @@ export function RosterBoard({
     const wide = !window.matchMedia('(max-width: 1023px)').matches;
     keepScroll.current = wide ? window.scrollY : null;
     setSelectedId(id);
+    try {
+      sessionStorage.setItem(selectedKey, id);
+    } catch {}
     // On a narrow screen the detail is below the list: bring it into view.
     if (window.matchMedia('(max-width: 1023px)').matches) {
       detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -435,7 +452,6 @@ export function RosterBoard({
   }, [roster, filter, onlyKeeper, onlyTraining, sort, query, lang, name]);
 
   // A Pokémon just added: once the list has it, turn to the page it is on.
-  const [reveal, setReveal] = useState<string | null>(null);
   if (reveal) {
     const index = visible.findIndex((p) => p.id === reveal);
     if (index >= 0) {

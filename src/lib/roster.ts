@@ -53,6 +53,8 @@ export type RosterView = {
   keeper: boolean;
   /** Marked as being trained right now. */
   training: boolean;
+  /** Left out of the breeding plans. */
+  breedingOff: boolean;
   targetNature: Named | null;
   currentNature: Named | null;
   /** The nature of the Mint it was given; its stat effect is the one the game shows. */
@@ -204,6 +206,7 @@ export async function loadRoster(
       owned: r.owned,
       keeper: r.keeper,
       training: r.training,
+      breedingOff: r.breedingOff,
       targetNature: r.targetNature,
       currentNature: r.currentNature,
       mintNature: r.mintNature,

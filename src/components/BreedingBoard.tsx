@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AiBadge } from './AiBadge';
-import { ConfirmDialog } from './Dialog';
+import { ConfirmDialog, Dialog } from './Dialog';
 import { HatchDialog } from './HatchDialog';
 import { ComboInput } from './roster/parts';
 import { Sprite } from './Sprite';
@@ -74,6 +74,23 @@ export function BreedingBoard({
       requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
   };
+  /** The parent whose details are open in the dialog. */
+  const [viewing, setViewing] = useState<ParentPick | null>(null);
+  // Coming back to the page shows the plan you were last on.
+  const storageKey = `breeding-plan:${gameId}`;
+  const restored = useRef(false);
+  useEffect(() => {
+    try {
+      if (!restored.current) {
+        restored.current = true;
+        const saved = sessionStorage.getItem(storageKey);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (saved && initial.some((g) => g.id === saved)) setSelectedId(saved);
+        return;
+      }
+      if (selectedId) sessionStorage.setItem(storageKey, selectedId);
+    } catch {}
+  }, [selectedId, storageKey, initial]);
   const [hatchOpen, setHatchOpen] = useState(false);
   /** The new-plan form is shown on demand once there are plans. */
   const [formOpen, setFormOpen] = useState(initial.length === 0);
@@ -486,6 +503,12 @@ export function BreedingBoard({
   const sourceLabel = (p: ParentPick) =>
     p.source === 'breeder' ? t('from your breeders') : p.source === 'roster' ? t('from your roster') : t('from your Pokédex, IVs unknown');
 
+  /** What tells two Pokémon of one species apart besides IVs: the nature and the ability. */
+  const pickTraits = (p: ParentPick) => {
+    const nature = natures.find((n) => n.id === p.natureId);
+    return [nature && name(nature), p.hiddenAbility ? t('hidden ability') : null].filter(Boolean).join(' · ');
+  };
+
   /** A parent to put in the nursery: the Pokémon chosen for it, whether you have it, and what it brings. */
   const renderParent = (goal: BreedingGoalView, role: string, pick: ParentPick | null, item: ShoppingItem | undefined) => {
     const species = pick?.species ?? item?.species;
@@ -508,6 +531,12 @@ export function BreedingBoard({
                 {sourceLabel(pick)}
                 {pick.perfect.length > 0 ? ` · ${t('perfect')}: ${statList(pick.perfect)}` : ''}
               </p>
+            )}
+            {pick && pickTraits(pick) && <p className="text-muted">{pickTraits(pick)}</p>}
+            {pick?.id && pick.source === 'breeder' && (
+              <button type="button" onClick={() => setViewing(pick)} className="underline">
+                {t('Which one is it?')}
+              </button>
             )}
           </div>
           <span
@@ -591,7 +620,7 @@ export function BreedingBoard({
     if (ivs?.base && ivs.partner) {
       const who = (w: 'base' | 'partner' | null) => {
         const p = w === 'base' ? ivs.base : ivs.partner;
-        return p ? (p.label ?? name(p.species)) : '';
+        return p ? `${symbol(p.gender === 'any' ? undefined : p.gender)}${p.label ?? name(p.species)}` : '';
       };
       lines.push(`${DESTINY_KNOT.name[lang]} ${t('(either parent holds it; 5 IVs are passed on instead of 3)')}`);
       if (ivs.items.powerItem) {
@@ -1141,6 +1170,50 @@ export function BreedingBoard({
         </div>
       )}
 
+      <Dialog open={viewing !== null} onClose={() => setViewing(null)} title={viewing ? (viewing.label ?? name(viewing.species)) : ''}>
+        {viewing && (
+          <div className="text-sm">
+            <div className="flex items-center gap-4 rounded-lg bg-surface-2 p-3">
+              {pic(viewing.species, 88)}
+              <div className="min-w-0 space-y-1">
+                <p className="text-base font-semibold">
+                  {name(viewing.species)}
+                  {viewing.gender !== 'any' && (
+                    <span className={`ml-1.5 font-bold ${viewing.gender === 'male' ? 'text-blue-500' : 'text-pink-500'}`}>
+                      {viewing.gender === 'male' ? '♂' : '♀'}
+                    </span>
+                  )}
+                </p>
+                {viewing.label && <p className="text-muted">“{viewing.label}”</p>}
+                <p className="text-xs text-muted">{sourceLabel(viewing)}</p>
+              </div>
+            </div>
+            <p className={`${labelClass} mt-4`}>{t('IVs')}</p>
+            <ul className="grid grid-cols-3 gap-1.5">
+              {IV_STATS.map((stat) => {
+                const perfect = viewing.perfect.includes(stat);
+                return (
+                  <li
+                    key={stat}
+                    className={`rounded-md border px-2 py-1 text-center text-xs ${
+                      perfect ? 'border-done/40 bg-done/15 font-semibold text-done' : 'border-line text-muted'
+                    }`}
+                  >
+                    {STAT_LABELS[stat][lang]}
+                    <span className="block text-[10px]">{perfect ? '31' : '—'}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+              <dt className="text-muted">{t('Nature')}</dt>
+              <dd className="font-medium">{natures.find((n) => n.id === viewing.natureId) ? name(natures.find((n) => n.id === viewing.natureId)!) : '—'}</dd>
+              <dt className="text-muted">{t('Ability')}</dt>
+              <dd className="font-medium">{viewing.hiddenAbility ? t('Hidden ability') : viewing.hiddenAbility === false ? t('Regular') : '—'}</dd>
+            </dl>
+          </div>
+        )}
+      </Dialog>
       <ConfirmDialog
         open={deleting != null}
         title={t('Delete this breeding plan?')}

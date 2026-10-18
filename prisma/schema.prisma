@@ -331,6 +331,8 @@ model RosterPokemon {
   /// Marked by the player: a "keeper": finished and kept (shown with crossed swords), and being trained right now. Only marks and filters.
   keeper    Boolean @default(false)
   training  Boolean @default(false)
+  /// Left out of the breeding plans, so a repeated Pokémon can be kept recorded without counting.
+  breedingOff Boolean @default(false) @map("breeding_off")
   /// The stage it is meant to end as, e.g. Slaking while it is a Slakoth. Null = the stage it is at now is the final one.
   finalSpeciesId Int?   @map("final_species_id")
   nickname      String?

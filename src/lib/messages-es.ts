@@ -3,6 +3,14 @@
  * no entry is shown in English, and tests/i18n.test.ts fails if one is missing.
  */
 export const ES: Record<string, string> = {
+  'Turn it off to leave this Pokémon out of the breeding plans, e.g. a repeated one, while it stays recorded here.': 'Desactívalo para dejar este Pokémon fuera de los planes de cría, por ejemplo uno repetido, sin dejar de tenerlo registrado aquí.',
+  'Left out of the plans': 'Fuera de los planes',
+  'Counts in the plans': 'Cuenta en los planes',
+  'left out of the plans': 'fuera de los planes',
+  'Regular': 'Normal',
+  'IVs': 'IVs',
+  'Which one is it?': '¿Cuál es?',
+  'hidden ability': 'habilidad oculta',
   '"Done", or what is still missing': '"Listo", o lo que aún falta',
   '"{name}" is not a Pokémon available in this game. Pick one from the suggestions.': '"{name}" no es un Pokémon disponible en este juego. Elige uno de las sugerencias.',
   '"{name}" is not a Pokémon you can get in this game. Pick one from the suggestions.': '"{name}" no es un Pokémon que puedas conseguir en este juego. Elige uno de las sugerencias.',

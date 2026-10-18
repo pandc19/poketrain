@@ -90,6 +90,21 @@ export function BattleBoard({
   /** The opponent whose details are shown; the newest one to begin with. */
   const [selectedId, setSelectedId] = useState<string | null>(initial.find((o) => !o.archived)?.id ?? initial[0]?.id ?? null);
   const selected = opponents.find((o) => o.id === selectedId) ?? active[0] ?? null;
+  // Coming back to the page shows the opponent you were last on.
+  const storageKey = `battle-selected:${gameId}`;
+  const restored = useRef(false);
+  useEffect(() => {
+    try {
+      if (!restored.current) {
+        restored.current = true;
+        const saved = sessionStorage.getItem(storageKey);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (saved && initial.some((o) => o.id === saved)) setSelectedId(saved);
+        return;
+      }
+      if (selectedId) sessionStorage.setItem(storageKey, selectedId);
+    } catch {}
+  }, [selectedId, storageKey, initial]);
   const detailRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLElement>(null);
   // The menu closes on Escape or a tap outside it.
