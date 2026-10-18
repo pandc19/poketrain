@@ -34,6 +34,8 @@ Multi-stage, built by Coolify on the droplet:
 4. `migrate-tools`: the Prisma CLI and `dotenv` only, pinned to the versions in `package-lock.json`. They are devDependencies, so the standalone trace does not include them.
 5. `runner`: the traced standalone server, static files, and `/opt/migrate` (CLI + `prisma/` + `prisma.config.ts`). Runs as the unprivileged `node` user. Image size is about 850 MB.
 
+The image declares a `HEALTHCHECK` that calls `/api/health` with `node` (the slim image has no curl or wget): interval 15 s, timeout 5 s, 90 s start period (covers the migration), 4 retries. Coolify uses it for rolling updates.
+
 [docker-entrypoint.sh](../docker-entrypoint.sh) runs `prisma migrate deploy` from `/opt/migrate`, then `exec`s the server. Set `SKIP_MIGRATIONS=1` to skip it (for example when debugging a container by hand).
 
 ## Coolify: application settings
@@ -44,7 +46,8 @@ Multi-stage, built by Coolify on the droplet:
 | Build pack | Dockerfile (`/Dockerfile`) |
 | Port | 3000 |
 | Domain | `https://poketrain.apps.<domain>` |
-| Auto deploy | on (push to `main`) |
+| Auto deploy | on (push to `main`; gated by the GitHub ruleset, see [deployment.md](deployment.md)) |
+| Health check | from the image (`HEALTHCHECK` in the Dockerfile); leave Coolify's own health check off unless it is changed to match |
 | Server | `shared-apps-1` |
 
 ### Environment variables
@@ -86,7 +89,7 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 1. PR merged into `main` (see [deployment.md](deployment.md)).
 2. Coolify clones the commit, builds the image on the droplet (about 3-8 minutes), and tags it with the commit SHA.
 3. The new container runs `prisma migrate deploy`, then starts the server.
-4. Traefik routes to the new container; the old one is stopped.
+4. When the new container reports healthy (`/api/health`), Traefik routes to it and the old one is stopped. If it exits or never becomes healthy, the deployment fails and the old container keeps serving.
 
 ## Operational notes
 
@@ -100,6 +103,7 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 ```bash
 curl -sI https://poketrain.apps.<domain>/ | head -3          # 307 to /violet/pokedex
 curl -s -o /dev/null -w "%{http_code}\n" https://poketrain.apps.<domain>/violet/pokedex   # 200
+curl -s https://poketrain.apps.<domain>/api/health            # {"status":"ok"}
 ```
 
 In the Coolify deployment log, the container's first lines should be `[entrypoint] prisma migrate deploy` and `No pending migrations to apply` (or the migrations just applied), then `✓ Ready`.
@@ -111,6 +115,7 @@ These are not in the repo, so re-verify them if the setup is ever rebuilt:
 - [ ] Coolify: GitHub App connected, auto deploy on, secrets set as runtime-only
 - [ ] Coolify: S3 storage for `shared-infra-storage` and a backup schedule on `shared-postgres`
 - [ ] Coolify: Docker cleanup schedule enabled on `shared-apps-1`
+- [ ] Coolify: the app shows **healthy** after a deploy (the image's health check is being read), and a deploy with a failing start leaves the previous version serving (tested once with a deliberately broken `DATABASE_URL`, then restored)
 - [ ] GitHub: the `main` ruleset and merge settings from [deployment.md](deployment.md)
 - [ ] Postgres: `REVOKE ALL ON DATABASE … FROM PUBLIC` applied to every app database
 - [ ] A test restore of a backup has been done at least once

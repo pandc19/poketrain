@@ -58,5 +58,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh && chown -R node:node /app /opt
 
 USER node
 EXPOSE 3000
+# Coolify reads this and keeps the old container serving until the new one is healthy. The
+# start period covers `prisma migrate deploy`. The slim image has no curl/wget, hence node.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=4 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server.js"]

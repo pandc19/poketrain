@@ -47,8 +47,9 @@ After the merge, watch the deployment in Coolify (Deployments tab). A deploy tak
 
 1. GitHub notifies Coolify (GitHub App webhook); Coolify clones the commit and runs `docker build` with the [Dockerfile](../Dockerfile) **on the droplet**. Nothing is built in GitHub Actions.
 2. The new container's entrypoint ([docker-entrypoint.sh](../docker-entrypoint.sh)) runs `prisma migrate deploy` against the production database, then starts the server.
-3. If the container does not come up (a failed migration exits the container), Coolify does not switch over and the previous version keeps serving. Read the deployment log.
-4. Once the new container is running, Coolify stops the old one.
+3. Coolify runs the image's health check ([Dockerfile](../Dockerfile) `HEALTHCHECK`, which calls [`/api/health`](../src/app/api/health/route.ts): 200 only when the server is up and the database answers). The old container keeps serving **until the new one is healthy**. Without a health check Coolify would treat a started container as ready and could stop the old one while the migration is still running.
+4. If the new container exits (a failed migration) or never becomes healthy (about 90 s of start period plus 4 failed checks), the deployment fails and the previous version keeps serving. Read the deployment log.
+5. Once the new container is healthy, Coolify stops the old one.
 
 ### Database changes
 
@@ -102,4 +103,4 @@ The Coolify GitHub App only needs read access to this repository's contents and 
 
 [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs on every PR to `main` and on every push to `main`: `npm ci`, `npm run lint`, `npx tsc --noEmit`, `npm test`. It does not build the Docker image or run `next build`: the real build happens in Coolify, and a broken Dockerfile shows up there (the previous version keeps running). If a Dockerfile change is risky, build it locally first: `docker build -t poketrain:test .`.
 
-Coolify deploys on push to `main` regardless of CI, so the ruleset above is what makes CI a gate.
+Coolify deploys on push to `main` and does not wait for CI. The ruleset above is what makes CI a gate: with a PR, the `check` job and an up-to-date branch all required, and an empty bypass list, the only commits that reach `main` are squashes of branches that already passed. (If that guarantee is ever not enough, the alternative is to turn off auto deploy in Coolify and have a CI job call the app's deploy webhook, `POST /api/v1/deploy?uuid=<app-uuid>` with a deploy-only API token, after `check` passes on `main`.)
