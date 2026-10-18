@@ -277,7 +277,7 @@ export function BreedersBoard({
                         aria-current={active ? 'true' : undefined}
                         className={`flex h-full w-full flex-col items-center rounded-lg border border-line px-1.5 pb-2 pt-1.5 text-center ${
                           active ? 'bg-surface-2' : 'bg-surface hover:bg-surface-2'
-                        }`}
+                        } ${p.breedingOff ? 'opacity-50' : ''}`}
                         style={active ? { outline: `2px solid ${accent}`, outlineOffset: 1 } : undefined}
                       >
                         <PokemonSprite p={p} size={56} animated={false} />
@@ -294,7 +294,7 @@ export function BreedersBoard({
                         </span>
                         {/* The line is always there so every card has the same height. */}
                         <span className="h-3.5 text-[10px] leading-3.5 text-muted">
-                          {p.roles.includes('ROSTER') ? t('also on the roster') : ''}
+                          {p.breedingOff ? t('left out of the plans') : p.roles.includes('ROSTER') ? t('also on the roster') : ''}
                         </span>
                       </button>
                     </li>
@@ -614,6 +614,21 @@ function BreederDetail({
               </>
             )}
           </span>
+          <label
+            title={t('Turn it off to leave this Pokémon out of the breeding plans, e.g. a repeated one, while it stays recorded here.')}
+            className="flex w-fit cursor-pointer items-center gap-2 text-sm"
+          >
+            <input
+              type="checkbox"
+              role="switch"
+              checked={!p.breedingOff}
+              onChange={(e) => void onSave({ breedingOff: !e.target.checked })}
+              className="h-4 w-4 accent-[var(--game-accent)]"
+            />
+            <span className={p.breedingOff ? 'text-muted' : 'font-medium'}>
+              {p.breedingOff ? t('Left out of the plans') : t('Counts in the plans')}
+            </span>
+          </label>
           <Field label={t('Gender')}>
             <GenderControl p={p} onChange={onGender} />
           </Field>

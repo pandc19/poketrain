@@ -32,6 +32,8 @@ const Body = z.object({
       /** The player's marks: a keeper (finished and kept), and being trained now. */
       keeper: z.boolean(),
       training: z.boolean(),
+      /** Left out of the breeding plans. */
+      breedingOff: z.boolean(),
       // One Pokémon has one gender; "both" is only a Pokédex notion (you have one of each).
       gender: z.enum(['MALE', 'FEMALE', 'GENDERLESS', 'UNKNOWN']),
       targetNatureId: id,
@@ -195,6 +197,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
             : set.training === false && set.keeper === undefined
               ? { training: false }
               : {}),
+          breedingOff: set.breedingOff,
           gender: set.gender,
           notes: set.notes,
           teraType: set.teraType,

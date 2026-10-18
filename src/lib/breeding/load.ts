@@ -44,7 +44,7 @@ export async function loadBreedingData(game: GameConfig, moveIds: number[]): Pro
 export async function loadOwned(profileId: string): Promise<Owned> {
   const [roster, entries] = await Promise.all([
     prisma.rosterPokemon.findMany({
-      where: { profileId, owned: true, profile: { userId: LOCAL_USER_ID } },
+      where: { profileId, owned: true, breedingOff: false, profile: { userId: LOCAL_USER_ID } },
       select: {
         id: true,
         speciesId: true,
