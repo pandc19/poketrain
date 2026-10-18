@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.cache
+.claude
+.env*
+*.dump
+*.tsbuildinfo
+samples
+docs
+tests
+Dockerfile
+.dockerignore
