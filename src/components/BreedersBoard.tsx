@@ -289,6 +289,7 @@ export function BreedersBoard({
                             </span>
                           )}
                         </span>
+                        {p.currentNature && <span className="mt-0.5 text-[10px] text-muted">{name(p.currentNature)}</span>}
                         <span className={`mt-1 text-[10px] ${perfect >= 5 ? 'text-star' : perfect > 0 ? 'text-done' : 'text-muted'}`}>
                           {judgedCount(p) === 0 ? t('IVs not recorded') : `${perfect}/6 ${t('perfect')}`}
                         </span>
