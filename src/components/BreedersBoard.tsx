@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
@@ -48,6 +48,21 @@ export function BreedersBoard({
   const [selectedId, setSelectedId] = useState<string | null>(
     initial.some((p) => p.id === initialSelectedId) ? initialSelectedId : (initial[0]?.id ?? null)
   );
+  // Coming back to the page shows the Pokémon you were last on, unless a link names one.
+  const storageKey = `breeders-selected:${gameId}`;
+  const restored = useRef(false);
+  useEffect(() => {
+    try {
+      if (!restored.current) {
+        restored.current = true;
+        const saved = sessionStorage.getItem(storageKey);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (!initialSelectedId && saved && initial.some((p) => p.id === saved)) setSelectedId(saved);
+        return;
+      }
+      if (selectedId) sessionStorage.setItem(storageKey, selectedId);
+    } catch {}
+  }, [selectedId, storageKey, initial, initialSelectedId]);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
   const [adding, setAdding] = useState('');
