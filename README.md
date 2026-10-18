@@ -92,6 +92,10 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 - **Empty Pokédex:** the reference data has not been synced. Run `npm run sync:pokeapi`.
 - **AI button says "not configured":** add a key to `.env.local` and restart the dev server.
 
+## Deploying
+
+Production runs on a DigitalOcean droplet managed by Coolify. Every change goes through a pull request, and a merge to `main` deploys. How that works: [docs/deployment.md](docs/deployment.md). What it is made of: [docs/deployment-reference.md](docs/deployment-reference.md).
+
 ## Importing a spreadsheet
 
 The **Import** page is not in the menu any more (the roster is already imported), but it is still at `/violet/import`. Open it, drop the file, check what each column is imported as, preview, then import. `samples/violet-roster.csv` is a working example.
