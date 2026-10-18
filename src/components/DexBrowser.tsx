@@ -47,6 +47,7 @@ export function DexBrowser({
   const storeKey = `pokedex-view:${gameId}`;
   const [restored, setRestored] = useState(false);
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       const saved = JSON.parse(localStorage.getItem(storeKey) ?? 'null');
       if (saved && typeof saved === 'object') {
@@ -59,6 +60,7 @@ export function DexBrowser({
       // No storage: the view just starts fresh.
     }
     setRestored(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
     // Once, on arrival.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
