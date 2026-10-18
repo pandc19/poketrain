@@ -2,8 +2,9 @@
 # Stages: deps -> build (next build, standalone output) -> runner.
 
 FROM node:24-slim AS base
-# openssl: Prisma's engines; ca-certificates: outbound HTTPS (AI providers).
-RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates \
+# openssl: Prisma's engines; ca-certificates: outbound HTTPS (AI providers); curl: Coolify's
+# own health check runs curl/wget inside the container and the slim image has neither.
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates curl \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
@@ -58,8 +59,9 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh && chown -R node:node /app /opt
 
 USER node
 EXPOSE 3000
-# Coolify reads this and keeps the old container serving until the new one is healthy. The
-# start period covers `prisma migrate deploy`. The slim image has no curl/wget, hence node.
+# Coolify keeps the old container serving until the new one is healthy (it runs its own curl
+# check against /api/health, so curl must stay installed). The start period covers
+# `prisma migrate deploy`.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=4 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 ENTRYPOINT ["docker-entrypoint.sh"]
