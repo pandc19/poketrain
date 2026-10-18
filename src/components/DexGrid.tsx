@@ -38,6 +38,7 @@ type Genders = { male: boolean; female: boolean };
 export function DexGrid({
   cells,
   stateCells,
+  listKey,
   lang,
   gameId,
   gameName,
@@ -64,6 +65,8 @@ export function DexGrid({
    * Given when the same grid is reused for several lists (tabs), so none starts blank.
    */
   stateCells?: DexCell[];
+  /** Tells one list from another when the grid is reused for tabs, so no card of the old list stays. */
+  listKey?: string;
   lang: Lang;
   gameId: string | null;
   gameName?: string;
@@ -383,7 +386,7 @@ export function DexGrid({
       {visible.length === 0 ? (
         <p className="py-16 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
       ) : (
-        <ul className="grid grid-cols-[repeat(auto-fill,minmax(136px,1fr))] gap-3">
+        <ul key={listKey} className="grid grid-cols-[repeat(auto-fill,minmax(136px,1fr))] gap-3">
           {visible.map((c, i) => {
             const isCaught = caught.has(c.key);
             const name = lang === 'en' ? c.nameEn : c.nameEs;
@@ -394,7 +397,7 @@ export function DexGrid({
             const registeredOnly = isCaught && !have;
             const newSection = sectioned && c.section !== (visible[i - 1]?.section ?? null);
             return (
-              <Fragment key={c.key}>
+              <Fragment key={`${c.key}-${i}`}>
               {newSection && (
                 <li className="col-span-full mt-2 border-b border-line pb-1 font-display text-sm font-semibold first:mt-0">
                   {c.section === 'Other' ? t('From other games') : c.section}

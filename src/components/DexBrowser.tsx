@@ -141,6 +141,7 @@ export function DexBrowser({
       <DexGrid
         cells={cellsBySlug[current.slug] ?? []}
         stateCells={everySpecies}
+        listKey={current.slug}
         lang={lang}
         gameId={gameId}
         gameName={gameName}
