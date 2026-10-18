@@ -19,6 +19,8 @@ RUN npm ci
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# public/ is empty and git does not track empty directories, so a clone lacks it.
+RUN mkdir -p public
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 # Cap V8's heap so the build stays inside a small droplet's RAM + swap.
