@@ -13,9 +13,13 @@ const Body = z
     speciesId: z.number().int().positive().optional(),
     /** ...or one that exists already, getting this role as well. */
     existingId: z.uuid().optional(),
+    /** ...or a copy of one, as a breeder: same species, moves, IVs and nature, to change afterwards. */
+    cloneId: z.uuid().optional(),
     role: z.enum(['ROSTER', 'BREEDER']).default('ROSTER'),
   })
-  .refine((b) => (b.speciesId != null) !== (b.existingId != null), { message: 'Give a species or an existing Pokémon' });
+  .refine((b) => [b.speciesId, b.existingId, b.cloneId].filter((x) => x != null).length === 1, {
+    message: 'Give a species, an existing Pokémon or one to clone',
+  });
 
 /** A breeder is one you have: it is caught in the Pokédex and marked as in your box. */
 async function markHave(rosterId: string, profileId: string) {
@@ -36,9 +40,46 @@ async function markHave(rosterId: string, profileId: string) {
 export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError('Invalid body', 400);
-  const { gameId, speciesId, existingId, role } = parsed.data;
+  const { gameId, speciesId, existingId, cloneId, role } = parsed.data;
   const profileId = await findProfileId(gameId);
   if (!profileId) return apiError('Unknown game', 404);
+
+  if (cloneId) {
+    const source = await prisma.rosterPokemon.findFirst({
+      where: { id: cloneId, profileId, profile: { userId: LOCAL_USER_ID } },
+      include: { moves: true },
+    });
+    if (!source) return apiError('Not found', 404);
+    const last = await prisma.rosterPokemon.aggregate({ where: { profileId }, _max: { sortOrder: true } });
+    // What breeding looks at (species, gender, nature, ability, IV words, moves) is copied; the rest of
+    // a trained Pokémon (EVs, stats, item, team slot, marks) is not, as a clone is only a breeder.
+    const created = await prisma.rosterPokemon.create({
+      data: {
+        profileId,
+        speciesId: source.speciesId,
+        formId: source.formId,
+        baseSpeciesId: source.baseSpeciesId,
+        nickname: source.nickname,
+        gender: source.gender,
+        origin: source.origin,
+        currentNatureId: source.currentNatureId,
+        natureStatus: source.natureStatus,
+        abilityId: source.abilityId,
+        abilityStatus: source.abilityStatus,
+        ivRatings: source.ivRatings ?? undefined,
+        potential: source.potential,
+        level: source.level,
+        sortOrder: (last._max.sortOrder ?? 0) + 1,
+        roles: { create: { role: 'BREEDER' } },
+        moves: {
+          create: source.moves.map((m) => ({ slot: m.slot, moveId: m.moveId, rawName: m.rawName, status: m.status, legal: m.legal })),
+        },
+      },
+    });
+    await markHave(created.id, profileId);
+    const [view] = await loadRoster(profileId, [created.id]);
+    return Response.json({ pokemon: view });
+  }
 
   if (existingId) {
     const existing = await prisma.rosterPokemon.findFirst({
