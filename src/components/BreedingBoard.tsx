@@ -635,7 +635,11 @@ export function BreedingBoard({
         const p = w === 'base' ? ivs.base : ivs.partner;
         return p ? `${symbol(p.gender === 'any' ? undefined : p.gender)}${p.label ?? name(p.species)}` : '';
       };
-      lines.push(`${DESTINY_KNOT.name[lang]} ${t('(either parent holds it; 5 IVs are passed on instead of 3)')}`);
+      lines.push(
+        ivs.items.knotHolder === 'either'
+          ? `${DESTINY_KNOT.name[lang]} ${t('(either parent holds it; 5 IVs are passed on instead of 3)')}`
+          : `${DESTINY_KNOT.name[lang]} ${t('on {name}: 5 IVs are passed on instead of 3', { name: who(ivs.items.knotHolder) })}`
+      );
       if (ivs.items.powerItem) {
         lines.push(
           `${POWER_ITEMS[ivs.items.powerItem].name[lang]} ${t('on {name}, so its {stat} IV is always passed on', {

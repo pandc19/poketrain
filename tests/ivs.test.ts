@@ -147,6 +147,22 @@ describe('planIvs', () => {
     expect(planIvs(data, owned, 1, goal(['hp'], { natureId: 99 }))!.natureOk).toBe(false);
   });
 
+  it('never gives one parent two items: the Everstone replaces the Power item, the Knot goes to the other parent', () => {
+    const owned = owning(mon('m', 1, 'FEMALE', ['hp'], { natureId: 5 }), mon('f', 2, 'MALE', ['hp', 'attack'], { natureId: 11 }));
+    const plan = planIvs(data, owned, 1, goal(['hp', 'attack'], { natureId: 11 }))!;
+    expect(plan.items.everstone).toBe('partner');
+    expect(plan.items.powerItem).toBeNull();
+    expect(plan.items.knotHolder).toBe('base');
+  });
+
+  it('uses the Power item when no parent has the nature, and the Knot goes to the other parent', () => {
+    const owned = owning(mon('m', 1, 'FEMALE', ['speed'], { natureId: 5 }), mon('f', 2, 'MALE', [], { natureId: 6 }));
+    const plan = planIvs(data, owned, 1, goal(['speed'], { natureId: 11 }))!;
+    expect(plan.items.everstone).toBeNull();
+    expect(plan.items.powerHolder).toBe('base');
+    expect(plan.items.knotHolder).toBe('partner');
+  });
+
   it('only counts the mother for the hidden ability', () => {
     const owned = owning(
       mon('m', 1, 'FEMALE', [], { hiddenAbility: false }),

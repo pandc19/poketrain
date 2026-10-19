@@ -20,12 +20,13 @@ Use the same values as the DBeaver connection: open it, **SSH** tab for the drop
 export DROPLET=root@<droplet-ip-or-hostname>   # DBeaver > SSH tab: Host/IP + User Name
 export PROD_DB_HOST=<host>                     # DBeaver > Main tab: Host  (as seen from the droplet)
 export PROD_DB_PORT=5432                       # DBeaver > Main tab: Port
+export SSH_KEY=<path-to-private-key>           # DBeaver > SSH tab: Private Key
 
 # Forwards localhost:15432 to the database through the droplet. Leave it running, or add -f to background it.
-ssh -N -L 15432:$PROD_DB_HOST:$PROD_DB_PORT $DROPLET
+ssh -i $SSH_KEY -o IdentitiesOnly=yes -N -L 15432:$PROD_DB_HOST:$PROD_DB_PORT $DROPLET
 ```
 
-`<host>` is whatever works from the droplet: `localhost` if the database publishes a port on the droplet, otherwise the Postgres container's name or Docker IP on Coolify's network (the Postgres resource page in Coolify shows the internal name). If DBeaver's SSH tab uses a key file, add `-i <key>`. Close the tunnel with Ctrl-C (or `kill` the process if you used `-f`).
+`<host>` is whatever works from the droplet: `localhost` if the database publishes a port on the droplet, otherwise the Postgres container's name or Docker IP on Coolify's network (the Postgres resource page in Coolify shows the internal name). The key is the one DBeaver's SSH tab uses; `-i` with `IdentitiesOnly` makes `ssh` offer only that key, as without it a named key is not tried and the droplet answers `Permission denied (publickey)`. Close the tunnel with Ctrl-C (or `kill` the process if you used `-f`).
 
 ### 2. Connection string and local settings
 
@@ -67,7 +68,7 @@ The dump carries production's migration history. If your branch has a newer migr
 The dump can also run on the droplet and stream back over SSH, which needs no forwarded port and always uses the server's own `pg_dump` version:
 
 ```bash
-ssh $DROPLET "docker exec -i \$(docker ps -qf name=<postgres-container-name>) \
+ssh -i $SSH_KEY -o IdentitiesOnly=yes $DROPLET "docker exec -i \$(docker ps -qf name=<postgres-container-name>) \
   env PGPASSWORD='<password>' pg_dump -U poketrain_app -d poketrain --format=custom --no-owner --no-privileges" \
   > poketrain_prod.dump
 ```

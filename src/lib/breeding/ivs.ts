@@ -8,6 +8,9 @@
  *    one chosen stat for sure; it is one of the inherited stats.
  *  - The other IVs are random: 1 in 32 to be 31.
  *  - An Everstone makes the egg take its holder's nature.
+ *  - Each parent holds one item, so the Destiny Knot, a Power item and the Everstone cannot all be
+ *    used: the Knot always, plus the Everstone when a parent has the wanted nature (a Mint fixes
+ *    it otherwise), else the best Power item.
  *  - The hidden ability comes from the parent whose species hatches (the mother), so a
  *    plan only counts that parent for it.
  *
@@ -59,7 +62,14 @@ export type IvPlan = {
   base: ParentPick | null;
   partner: ParentPick | null;
   /** Held items to bring to the picnic or nursery. */
-  items: { destinyKnot: boolean; powerItem: IvStat | null; powerHolder: 'base' | 'partner' | null; everstone: 'base' | 'partner' | null };
+  items: {
+    destinyKnot: boolean;
+    /** The parent that holds the Knot: the one without the other item, or either when there is none. */
+    knotHolder: 'base' | 'partner' | 'either';
+    powerItem: IvStat | null;
+    powerHolder: 'base' | 'partner' | null;
+    everstone: 'base' | 'partner' | null;
+  };
   /** Chance that every targeted IV is 31, and how many targeted IVs to expect, with that setup. */
   chance: { all: number; expected: number };
   /** Targeted stats that neither parent has recorded as 31: the next thing to breed or catch. */
@@ -149,10 +159,19 @@ function score(base: OwnedPokemon, partner: OwnedPokemon, goal: IvGoal): Scored 
   const b = perfectOf(partner);
   const targets = goal.ivTargets;
 
-  // The best Power item: the one that gives the highest chance of every target.
+  let everstone: Scored['everstone'] = null;
+  let natureOk: boolean | null = null;
+  if (goal.natureId != null) {
+    // Ditto's nature is passed on like any other parent's.
+    everstone = base.natureId === goal.natureId ? 'base' : partner.natureId === goal.natureId ? 'partner' : null;
+    natureOk = everstone != null;
+  }
+
+  // The best Power item: the one that gives the highest chance of every target. Only when the
+  // Everstone is not used, as a parent holds one item and the Knot needs the other.
   let power: Scored['power'] = null;
   let odds = inheritanceOdds(a, b, targets, { knot: true });
-  for (const stat of targets) {
+  for (const stat of everstone ? [] : targets) {
     for (const holder of ['base', 'partner'] as const) {
       const has = (holder === 'base' ? a : b).includes(stat);
       if (!has) continue;
@@ -164,13 +183,6 @@ function score(base: OwnedPokemon, partner: OwnedPokemon, goal: IvGoal): Scored 
     }
   }
 
-  let everstone: Scored['everstone'] = null;
-  let natureOk: boolean | null = null;
-  if (goal.natureId != null) {
-    // Ditto's nature is passed on like any other parent's.
-    everstone = base.natureId === goal.natureId ? 'base' : partner.natureId === goal.natureId ? 'partner' : null;
-    natureOk = everstone != null;
-  }
   const hiddenOk = goal.hiddenAbility ? base.hiddenAbility === true : null;
   const unrecorded = base.source === 'pokedex' || partner.source === 'pokedex';
   return { base, partner, power, odds, everstone, natureOk, hiddenOk, unrecorded };
@@ -178,9 +190,11 @@ function score(base: OwnedPokemon, partner: OwnedPokemon, goal: IvGoal): Scored 
 
 const better = (x: Scored, y: Scored) => {
   const eps = 1e-12;
+  // A wanted nature comes first: the Everstone takes the second item slot, so a pair that has it
+  // would otherwise lose to one that only wins by using a Power item.
+  if ((x.natureOk === true) !== (y.natureOk === true)) return x.natureOk === true;
   if (Math.abs(x.odds.all - y.odds.all) > eps) return x.odds.all > y.odds.all;
   if (Math.abs(x.odds.expected - y.odds.expected) > eps) return x.odds.expected > y.odds.expected;
-  if ((x.natureOk === true) !== (y.natureOk === true)) return x.natureOk === true;
   if ((x.hiddenOk === true) !== (y.hiddenOk === true)) return x.hiddenOk === true;
   const rank = (s: Scored) => SOURCE_RANK[s.base.source ?? 'roster'] + SOURCE_RANK[s.partner.source ?? 'roster'];
   return rank(x) < rank(y);
@@ -192,7 +206,7 @@ const empty = (goal: IvGoal, reason: IvPlan['reason']): IvPlan => ({
   wantsHiddenAbility: goal.hiddenAbility,
   base: null,
   partner: null,
-  items: { destinyKnot: true, powerItem: null, powerHolder: null, everstone: null },
+  items: { destinyKnot: true, knotHolder: 'either', powerItem: null, powerHolder: null, everstone: null },
   chance: { all: 0, expected: 0 },
   gaps: goal.ivTargets,
   natureOk: null,
@@ -247,6 +261,8 @@ export function planIvs(data: BreedingData, owned: Owned, targetId: number, goal
 
   const basePick = pickOf(data, best.base, canBeFemale(data.species.get(best.base.speciesId)!) ? 'female' : 'any');
   const partnerPick = pickOf(data, best.partner, isDitto(best.partner) ? 'any' : 'male');
+  // The Knot goes to the parent that holds neither of the other two items.
+  const other = best.everstone ?? best.power?.holder ?? null;
   const have = new Set([...basePick.perfect, ...partnerPick.perfect]);
   return {
     targets: goal.ivTargets,
@@ -256,6 +272,7 @@ export function planIvs(data: BreedingData, owned: Owned, targetId: number, goal
     partner: partnerPick,
     items: {
       destinyKnot: true,
+      knotHolder: other ? (other === 'base' ? 'partner' : 'base') : 'either',
       powerItem: best.power?.stat ?? null,
       powerHolder: best.power?.holder ?? null,
       everstone: best.everstone,

@@ -12,7 +12,7 @@ import { TYPE_COLORS } from '@/lib/pokemon-types';
 import { IV_RATINGS, type IvRatings } from '@/lib/iv-ratings';
 import type { EditorOptions, RosterView } from '@/lib/roster';
 import { useT } from '@/lib/translate-client';
-import { CheckIcon, TrashIcon } from './ActionIcons';
+import { CheckIcon, CopyIcon, TrashIcon } from './ActionIcons';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 
@@ -122,6 +122,19 @@ export function BreedersBoard({
       if (selectedId === p.id) setSelectedId(rest[0]?.id ?? null);
     } catch {
       setError(t('Could not remove that Pokémon. Try again.'));
+    }
+  }
+
+  /** A copy of this breeder, to record another with different IVs or nature for the plans to choose from. */
+  async function clone(p: RosterView) {
+    setError(null);
+    try {
+      const data = await api<{ pokemon: RosterView }>('/api/roster', 'POST', { gameId, cloneId: p.id, role: 'BREEDER' });
+      setList((prev) => [...prev, data.pokemon]);
+      setQuery('');
+      setSelectedId(data.pokemon.id);
+    } catch {
+      setError(t('Could not clone that Pokémon. Try again.'));
     }
   }
 
@@ -339,6 +352,7 @@ export function BreedersBoard({
                 onGender={(g: Gender) => save(selected, { gender: g })}
                 onPotential={(v) => save(selected, { potential: v })}
                 onStage={(speciesId) => changeStage(selected, speciesId).catch((e) => setError(e instanceof Error ? e.message : t('Could not change its stage. Try again.')))}
+                onClone={() => void clone(selected)}
                 onRemove={() => {
                   setClearHave(true);
                   setRemoving(selected);
@@ -444,6 +458,7 @@ function BreederDetail({
   onGender,
   onPotential,
   onStage,
+  onClone,
   onRemove,
 }: {
   gameId: string;
@@ -455,6 +470,7 @@ function BreederDetail({
   onGender: (g: Gender) => void;
   onPotential: (v: RosterView['potential']) => void;
   onStage: (speciesId: number) => Promise<void>;
+  onClone: () => void;
   onRemove: () => void;
 }) {
   const { t } = useT();
@@ -537,6 +553,14 @@ function BreederDetail({
                 className="w-40 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
               />
             </label>
+            <button
+              onClick={onClone}
+              title={t('Clone: record another one like this, then change its IVs or nature')}
+              aria-label={t('Clone')}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-ink"
+            >
+              <CopyIcon />
+            </button>
             <button
               onClick={onRemove}
               title={t('Remove')}
