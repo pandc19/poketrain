@@ -557,9 +557,9 @@ function BreederDetail({
               onClick={onClone}
               title={t('Clone: record another one like this, then change its IVs or nature')}
               aria-label={t('Clone')}
-              className="flex h-8 items-center gap-1.5 rounded-md border border-line px-2.5 text-muted hover:text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-ink"
             >
-              <CopyIcon /> {t('Clone')}
+              <CopyIcon />
             </button>
             <button
               onClick={onRemove}
