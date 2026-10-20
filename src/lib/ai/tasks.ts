@@ -17,7 +17,10 @@ import type { RosterView } from '../roster';
 import { type AuditAsk, type BuildAuditRaw, BilingualLocationSchema, type LocationResult, buildAuditSchema } from './schema';
 import { localizeNames } from './names';
 import { mintInForce } from '../mint';
-import type { AiProvider, ModelTier } from './types';
+import { AiError, type AiProvider, type ModelTier } from './types';
+import { RULES_VERSION, ruleAudit, type RuleMove, type RuleNature } from '../audit-rules';
+import { loadChart } from '../battle/load';
+import type { LearnableMoves } from '../breeding/moves';
 
 const PROMPT_VERSION = 20;
 
@@ -58,12 +61,15 @@ const hashOf = (model: string, input: unknown, version = PROMPT_VERSION) =>
 export const legacyLocationHash = (model: string, gameId: string, pokemon: string, lang: Lang) =>
   hashOf(model, { game: gameId, pokemon, lang }, LEGACY_LOCATION_VERSION);
 
+/** Who answers an audit: a model, or the rules (which never call `generate`). */
+type AuditSource = Pick<AiProvider, 'modelFor' | 'generate'> & { name: string };
+
 /**
  * Runs an AI task through the AiAudit cache: the same question (same kind,
  * provider and input) is answered from the database and never paid for twice.
  */
 async function cached<Raw, T = Raw>(
-  provider: AiProvider,
+  provider: AuditSource,
   key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean; lang: Lang; version?: number },
   input: unknown,
   request: {
@@ -177,14 +183,19 @@ function describeBuild(p: RosterView, hasEvs = true) {
   };
 }
 
+/** What the rules need to know about the audit being made, once it has been worked out what to ask. */
+type RulesContext = { pool: LearnableMoves; ask: AuditAsk; fixedMoves: string[]; freeEvs: boolean };
+
 export async function auditBuild(
-  provider: AiProvider,
+  provider: AuditSource,
   game: GameConfig,
   lang: Lang,
   profileId: string,
   p: RosterView,
   refresh: boolean,
-  deep = false
+  deep = false,
+  /** Answers from game data instead of asking a model (see `quickAudit`). */
+  rules?: (ctx: RulesContext) => Promise<Partial<BuildAuditRaw>>
 ) {
   const hasEvs = game.features.evs;
   // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
@@ -239,7 +250,8 @@ export async function auditBuild(
   return cached(
     provider,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
-    { build, illegal, legalMovePool, lang, locks: p.auditLocks },
+    // Rules are deterministic and cheap, so each Pokémon keeps its own: the answer is not shared by identical builds.
+    { build, illegal, legalMovePool, lang, locks: p.auditLocks, ...(rules ? { pokemonId: p.id } : {}) },
     {
       system: system(game, lang),
       schema: buildAuditSchema(ask, hasEvs),
@@ -285,7 +297,11 @@ export async function auditBuild(
       },
       schemaName: 'build_audit',
       // Everything is fixed: nothing is left for the model to decide.
-      local: nothingToAsk ? ({} as Partial<BuildAuditRaw>) : undefined,
+      local: rules
+        ? await rules({ pool, ask, fixedMoves: locks?.moves?.map((m) => m.move) ?? [], freeEvs: hasTarget })
+        : nothingToAsk
+          ? ({} as Partial<BuildAuditRaw>)
+          : undefined,
       // Item and EV advice depends on how this game works, so let it look things up.
       webSearch: true,
       // One Pokémon at a time is the everyday request; "deeper" is the user's choice.
@@ -425,4 +441,62 @@ function sharedGameName(game: GameConfig): string {
   if (!pair) return game.name;
   const [first, second] = [game, pair].sort((a, b) => a.shortName.localeCompare(b.shortName));
   return `${first.name} and ${second.shortName}`;
+}
+
+/** The "provider" of an audit made by rules: it has a name and a version, and never answers a request. */
+const RULES_SOURCE: AuditSource = {
+  name: 'rules',
+  modelFor: () => `rules-v${RULES_VERSION}`,
+  generate: () => Promise.reject(new Error('The rule-based audit never asks a model.')),
+};
+
+/** Held items the rules may suggest, looked up by slug so only ones this database has are named. */
+const RULE_ITEMS = ['focus-sash', 'choice-band', 'choice-specs', 'life-orb', 'leftovers', 'assault-vest'];
+
+/**
+ * The audit without AI: the same answer as `auditBuild`, worked out from base stats, the moves the Pokémon can
+ * learn and the type chart. It is saved like an AI audit (provider "rules"), so the card shows it the same way.
+ * Always made again, since it is free and instant.
+ */
+export async function quickAudit(game: GameConfig, lang: Lang, profileId: string, p: RosterView) {
+  const final = p.finalSpecies;
+  const baseStats = final?.baseStats ?? p.baseStats;
+  if (!baseStats) throw new AiError('There is not enough data on this Pokémon to suggest a build.');
+
+  return auditBuild(RULES_SOURCE, game, lang, profileId, p, true, false, async ({ pool, ask, fixedMoves, freeEvs }) => {
+    const [natures, itemRows, chart] = await Promise.all([
+      prisma.nature.findMany({ select: { nameEn: true, increased: true, decreased: true } }),
+      game.features.heldItems ? prisma.item.findMany({ where: { slug: { in: RULE_ITEMS } }, select: { slug: true, nameEn: true } }) : [],
+      loadChart(),
+    ]);
+    const known = new Set(p.moves.map((m) => m.move?.nameEn));
+    const moves: RuleMove[] = [...pool.egg, ...pool.other].map((m) => ({
+      slug: m.slug,
+      nameEn: m.nameEn,
+      type: m.type,
+      damageClass: m.damageClass,
+      power: m.power,
+      accuracy: m.accuracy,
+      known: known.has(m.nameEn),
+    }));
+    const items = Object.fromEntries(itemRows.map((i) => [i.slug, i.nameEn]));
+    const effect = mintInForce(p) ?? p.currentNature ?? p.targetNature;
+    const effectNature: RuleNature | null = natures.find((n) => n.nameEn === effect?.nameEn) ?? null;
+    const raw = ruleAudit({
+      lang,
+      types: final?.types ?? p.types,
+      baseStats,
+      moves,
+      natures,
+      effectNature,
+      fixedMoves,
+      currentEvs: p.currentEvs,
+      freeEvs,
+      items,
+      chart,
+      ask,
+      currentItemSlug: Object.entries(items).find(([, name]) => name === p.item?.nameEn)?.[0] ?? null,
+    });
+    return raw as Partial<BuildAuditRaw>;
+  });
 }

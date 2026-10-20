@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AiBadge } from '../AiBadge';
 import { AuditPanel } from '../AuditPanel';
@@ -163,7 +163,10 @@ function Section({ title, columns, children }: { title: string; columns?: 2 | 3;
   );
 }
 
-/** The AI audit's answer for one field: it matches what the Pokémon has, or here is what it suggests. */
+/** Who made the audit being shown, so its suggestions are not all called the AI's. */
+const SuggestedBy = createContext<'ai' | 'rules'>('ai');
+
+/** The audit's answer for one field: it matches what the Pokémon has, or here is what it suggests. */
 function Suggestion({
   same,
   title,
@@ -177,13 +180,15 @@ function Suggestion({
   children: React.ReactNode;
 }) {
   const { t } = useT();
+  const by = useContext(SuggestedBy);
   if (same) {
-    return <p className="mt-1 text-[11px] text-done">✓ {t('Matches the AI audit')}</p>;
+    return <p className="mt-1 text-[11px] text-done">✓ {by === 'rules' ? t('Matches the quick audit') : t('Matches the AI audit')}</p>;
   }
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" title={title}>
       <span className="text-pending">
-        <AiBadge className="mr-1" /> {t('AI suggests')}: <span className="font-medium">{children}</span>
+        {by === 'ai' && <AiBadge className="mr-1" />} {by === 'rules' ? t('Quick audit suggests') : t('AI suggests')}:{' '}
+        <span className="font-medium">{children}</span>
       </span>
       {onApply && (
         <button
@@ -294,6 +299,7 @@ export function RosterDetail({
   onPotential,
   onSaveStats,
   onAudit,
+  onQuickAudit,
   onToggleAudit,
   onBreeder,
   onRemove,
@@ -329,6 +335,8 @@ export function RosterDetail({
   onPotential: (v: RosterView['potential']) => void;
   onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   onAudit: (refresh: boolean, deep: boolean) => void;
+  /** The audit made from game data alone, which needs no AI. */
+  onQuickAudit: () => void;
   onToggleAudit: () => void;
   /** Adds it to, or takes it off, the breeders. */
   onBreeder: (on: boolean) => void;
@@ -494,7 +502,9 @@ export function RosterDetail({
     void save({ moves: changes });
   }
 
+  const byRules = p.audit?.provider === 'rules';
   return (
+    <SuggestedBy.Provider value={byRules ? 'rules' : 'ai'}>
     <article className="@container rounded-xl border border-line bg-surface p-4">
       {/* ---------- header ---------- */}
       <header className="flex flex-wrap items-start gap-4">
@@ -880,7 +890,10 @@ export function RosterDetail({
             {sug.moves && (
               <div className="rounded-md border border-line bg-bg p-2 text-[11px]">
                 <p className="mb-1 text-muted">
-                  <AiBadge className="mr-1" /> {t('AI suggests, in order. Tap one to put it in that slot.')}
+                  {p.audit?.provider !== 'rules' && <AiBadge className="mr-1" />}{' '}
+                  {p.audit?.provider === 'rules'
+                    ? t('The quick audit suggests, in order. Tap one to put it in that slot.')
+                    : t('AI suggests, in order. Tap one to put it in that slot.')}
                 </p>
                 <ol className="space-y-1">
                   {sug.moves.slice(0, 4).map((m, i) => {
@@ -956,15 +969,34 @@ export function RosterDetail({
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 flex flex-wrap gap-2">
+        {p.audit && (
+          <button
+            onClick={onToggleAudit}
+            disabled={auditing}
+            className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+          >
+            {auditOpen ? t('Hide audit') : t('Show audit')}
+          </button>
+        )}
         <button
-          onClick={() => (p.audit ? onToggleAudit() : onAudit(false, false))}
-          disabled={(!aiEnabled && !p.audit) || auditing}
-          title={aiEnabled ? undefined : t('Add an API key to .env.local to enable AI audits')}
+          onClick={onQuickAudit}
+          disabled={auditing}
+          title={t('Suggests a nature, EVs, four moves, an item and a Tera type from the game data. Free and instant, no AI.')}
           className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
         >
-          {auditing ? t('Auditing…') : p.audit ? (auditOpen ? t('Hide audit') : t('Show audit')) : t('AI audit')}
+          {auditing ? t('Auditing…') : t('Quick audit')}
         </button>
+        {/* The AI audit is the same audit, looked at more deeply: only offered where AI is on. */}
+        {aiEnabled && (!p.audit || byRules) && (
+          <button
+            onClick={() => onAudit(false, false)}
+            disabled={auditing}
+            className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+          >
+            {t('AI audit')}
+          </button>
+        )}
       </div>
 
       {auditOpen && p.audit && (
@@ -996,9 +1028,10 @@ export function RosterDetail({
           audit={p.audit.result as Parameters<typeof AuditPanel>[0]['audit']}
           auditLang={p.audit.lang}
           meta={`${p.audit.provider} · ${p.audit.model}`}
-          onRefresh={aiEnabled ? () => onAudit(true, false) : undefined}
-          onDeep={aiEnabled ? () => onAudit(false, true) : undefined}
-          onChangeLanguage={aiEnabled ? () => onAudit(false, false) : undefined}
+          rules={byRules}
+          onRefresh={byRules ? onQuickAudit : aiEnabled ? () => onAudit(true, false) : undefined}
+          onDeep={!byRules && aiEnabled ? () => onAudit(false, true) : undefined}
+          onChangeLanguage={byRules ? onQuickAudit : aiEnabled ? () => onAudit(false, false) : undefined}
           busy={auditing}
         />
       )}
@@ -1015,5 +1048,6 @@ export function RosterDetail({
         ))}
       </datalist>
     </article>
+    </SuggestedBy.Provider>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCachedLocations } from './useCachedLocations';
+import { createContext, useContext } from 'react';
 import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
 import { SourceRow, filterSources, type EvSource } from './EvSources';
@@ -86,6 +87,9 @@ function SourceGroup({
 }
 
 /** One part of the audit in its own box, with a button that fixes it (and takes the fix away). */
+/** The audit being shown was made by rules, not an AI: its sections carry no AI badge. */
+const MadeByRules = createContext(false);
+
 function Box({
   title,
   fixed,
@@ -104,13 +108,14 @@ function Box({
   children: React.ReactNode;
 }) {
   const { t } = useT();
+  const byRules = useContext(MadeByRules);
   return (
     <section className={`rounded-lg border bg-surface p-3 ${fixed ? 'border-done/50' : 'border-line'}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
         <h4 className="section-title">
           {fixed && <span className="mr-1 text-done">✓</span>}
           {title}
-          {ai && !fixed && <AiBadge className="ml-2" />}
+          {ai && !byRules && !fixed && <AiBadge className="ml-2" />}
         </h4>
         {onToggle && (
           <button
@@ -148,6 +153,7 @@ export function AuditPanel({
   audit,
   auditLang,
   meta,
+  rules = false,
   onRefresh,
   onDeep,
   onChangeLanguage,
@@ -179,6 +185,8 @@ export function AuditPanel({
   /** The language the saved answer is written in. */
   auditLang?: string;
   meta: string;
+  /** Made from game data by rules, not written by an AI. */
+  rules?: boolean;
   onRefresh?: () => void;
   /** Re-run on the stronger escalation model. */
   onDeep?: () => void;
@@ -242,6 +250,7 @@ export function AuditPanel({
   const otherLanguage = auditLang != null && auditLang !== lang;
 
   return (
+    <MadeByRules.Provider value={rules}>
     <div className="mt-3 space-y-3 rounded-lg bg-surface-2 p-3 text-xs">
       {otherLanguage && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-star/40 bg-star/10 px-2 py-1.5 text-star">
@@ -266,7 +275,7 @@ export function AuditPanel({
       {compare && compare.length > 0 && (
         <section className="rounded-lg border border-line bg-surface p-3">
           <h4 className="section-title mb-2">
-            {t('Now vs AI')} <AiBadge className="ml-1" />
+            {rules ? t('Now vs quick audit') : t('Now vs AI')} {!rules && <AiBadge className="ml-1" />}
           </h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
             {compare.map((r) => (
@@ -411,7 +420,9 @@ export function AuditPanel({
 
       <p className="flex items-center justify-between text-[10px] text-muted">
         <span>
-          {t('AI-generated ({meta}). Check locations in game before relying on them.', { meta })}
+          {rules
+            ? t('Rule-based suggestion from game data ({meta}). An AI audit looks deeper.', { meta })
+            : t('AI-generated ({meta}). Check locations in game before relying on them.', { meta })}
           {auditLang && ` · ${languageName(auditLang)}`}
         </span>
         <span className="flex gap-3">
@@ -428,5 +439,6 @@ export function AuditPanel({
         </span>
       </p>
     </div>
+    </MadeByRules.Provider>
   );
 }

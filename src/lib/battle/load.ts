@@ -254,7 +254,7 @@ async function buildIndex(game: GameConfig): Promise<GameIndex> {
 }
 
 let chartCache: Promise<TypeChart> | null = null;
-function loadChart() {
+export function loadChart() {
   chartCache ??= prisma.typeEffect
     .findMany()
     .then((rows) => {
