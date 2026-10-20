@@ -38,6 +38,7 @@ export function RosterBoard({
   evs,
   evTarget,
   tera,
+  mints,
   breeding,
   aiEnabled,
   accent,
@@ -60,6 +61,8 @@ export function RosterBoard({
   evTarget: boolean;
   /** The game has Tera types. */
   tera: boolean;
+  /** The game has Mints. */
+  mints: boolean;
   /** The game has breeding, so a nature can start a breeding plan. */
   breeding: boolean;
   aiEnabled: boolean;
@@ -720,6 +723,8 @@ export function RosterBoard({
               judge={judge}
               evs={evs}
               evTarget={evTarget}
+              tera={tera}
+              mints={mints}
               breeding={breeding}
               estimate={estimateFor(selected)}
               numberLabel={numberLabel(selected)}

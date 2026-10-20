@@ -6,7 +6,8 @@ import { findLocations, saveLocation } from '../locations';
 import type { StoredLocation } from '../location-text';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
-import { activeMint, withFixedMoves } from '../audit-locks';
+import { auditAsk, gameHasMints } from '../audit-ask';
+import { withFixedMoves } from '../audit-locks';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
 import { syncEvStatus } from '../ev-sync';
@@ -217,26 +218,9 @@ export async function auditBuild(
 
   const locks = p.auditLocks;
   const hasTera = game.features.teraType;
-  // Mints exist where the game's catalog lists them.
-  const hasMint = game.catalog.some((s) => s.id === 'mints');
-  // A fixed Mint only counts while it still holds (the Pokémon has it, or needs none).
-  const mintLock = hasMint
-    ? activeMint(locks, p.mintNature?.nameEn, (p.currentNature ?? p.targetNature)?.nameEn)
-    : undefined;
-  // What the player has fixed is not asked of the model again: it is kept, and the rest of the audit is worked out in code.
-  const hasNature = Boolean(p.currentNature || p.targetNature || p.mintNature);
-  const planFixed = hasEvs && p.evs != null;
-  const ask: AuditAsk = {
-    evPlan: hasEvs && !planFixed,
-    heldItem: !locks?.heldItem,
-    moves: (locks?.moves?.length ?? 0) < 4,
-    tera: hasTera && !locks?.teraType,
-    // With no nature on record, the first thing to settle is which nature to aim for; a Mint only fixes a
-    // nature it already has, so it is asked once there is one.
-    nature: !hasNature,
-    mint: hasMint && !mintLock && hasNature,
-  };
-  const nothingToAsk = !Object.values(ask).some(Boolean);
+  const hasMint = gameHasMints(game);
+  // What the player has fixed is not asked again, by any kind of audit: it is kept, and the rest is worked out.
+  const { ask, mintLock, planFixed, nothingToAsk } = auditAsk(p, { hasEvs, hasTera, hasMint });
 
   /** What is fixed, said once so the model chooses the rest to go with it. */
   const fixedNotes = [
@@ -247,11 +231,14 @@ export async function auditBuild(
     mintLock ? `Mint (fixed): ${mintLock.nature}.` : '',
   ].filter(Boolean);
 
+  // With every part fixed there is nothing to ask: the audit is the fixed parts, and it is saved as such rather
+  // than as something the model wrote.
+  const source = rules || !nothingToAsk ? provider : FIXED_SOURCE;
   return cached(
-    provider,
+    source,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
-    // Rules are deterministic and cheap, so each Pokémon keeps its own: the answer is not shared by identical builds.
-    { build, illegal, legalMovePool, lang, locks: p.auditLocks, ...(rules ? { pokemonId: p.id } : {}) },
+    // Rules and fixed parts are deterministic and cheap, so each Pokémon keeps its own: the answer is not shared by identical builds.
+    { build, illegal, legalMovePool, lang, locks: p.auditLocks, ...(rules || nothingToAsk ? { pokemonId: p.id } : {}) },
     {
       system: system(game, lang),
       schema: buildAuditSchema(ask, hasEvs),
@@ -448,6 +435,13 @@ const RULES_SOURCE: AuditSource = {
   name: 'rules',
   modelFor: () => `rules-v${RULES_VERSION}`,
   generate: () => Promise.reject(new Error('The rule-based audit never asks a model.')),
+};
+
+/** The "provider" of an audit with every part fixed: built from what the player fixed, and no model was asked. */
+const FIXED_SOURCE: AuditSource = {
+  name: 'fixed',
+  modelFor: () => 'fixed-parts',
+  generate: () => Promise.reject(new Error('An audit with every part fixed never asks a model.')),
 };
 
 /** Held items the rules may suggest, looked up by slug so only ones this database has are named. */
