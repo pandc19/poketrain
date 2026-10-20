@@ -1,5 +1,5 @@
 import { prisma } from '../db';
-import type { GameConfig } from '../games';
+import { gameDexes, type GameConfig } from '../games';
 
 /** Abilities that make eggs hatch in half the steps while the Pokémon is in the party (they do not stack). */
 export const HATCH_ABILITIES = ['flame-body', 'magma-armor', 'steam-engine'] as const;
@@ -19,7 +19,7 @@ export async function loadHatchHelpers(game: GameConfig, profileId: string): Pro
   const rows = await prisma.formAbility.findMany({
     where: {
       ability: { slug: { in: [...HATCH_ABILITIES] } },
-      form: { isDefault: true, species: { pokedexSlots: { some: { pokedex: { gameId: game.id } } } } },
+      form: { isDefault: true, species: { pokedexSlots: { some: { pokedex: gameDexes(game.id) } } } },
     },
     select: {
       isHidden: true,

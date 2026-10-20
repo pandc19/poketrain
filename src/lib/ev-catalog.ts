@@ -1,6 +1,6 @@
 import { prisma } from './db';
 import type { EvSpread } from './import/evs';
-import { NATIONAL_DEX_SLUG } from './games';
+import { gameDexes } from './games';
 
 /** The stat names the audit shows next to the Pokémon to battle. */
 export const STAT_NAMES = {
@@ -60,7 +60,7 @@ export async function loadEvSources(
 ): Promise<EvSources[]> {
   if (stats.length === 0) return [];
   const slots = await prisma.pokedexSlot.findMany({
-    where: { pokedex: { gameId, slug: { not: NATIONAL_DEX_SLUG } }, species: { isSpecial: false } },
+    where: { pokedex: gameDexes(gameId), species: { isSpecial: false } },
     select: {
       species: {
         select: {
