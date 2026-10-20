@@ -282,9 +282,10 @@ async function main() {
   }
 
   console.log('pokedexes');
+  // Paired games list the same Pokédexes; each is synced once. Which games list it is in the game config.
   const dexes = [
-    { slug: NATIONAL_DEX_SLUG, name: 'National', gameId: null as string | null, sortOrder: 0 },
-    ...GAMES.flatMap((g) => g.pokedexes.map((d, i) => ({ slug: d.slug, name: d.name.en, gameId: g.id, sortOrder: i }))),
+    { slug: NATIONAL_DEX_SLUG, name: 'National' },
+    ...new Map(GAMES.flatMap((g) => g.pokedexes.map((d) => [d.slug, { slug: d.slug, name: d.name.en }] as const))).values(),
   ];
   for (const dex of dexes) {
     const d = dex.slug === NATIONAL_DEX_SLUG ? national : await get(`pokedex/${dex.slug}`);

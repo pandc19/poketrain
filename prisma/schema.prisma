@@ -25,8 +25,7 @@ model Game {
   generation   Int
   sortOrder    Int    @default(0) @map("sort_order")
 
-  pokedexes Pokedex[]
-  profiles  GameProfile[]
+  profiles GameProfile[]
 
   @@map("games")
 }
@@ -173,15 +172,13 @@ model Nature {
   @@map("natures")
 }
 
+/// Which games list a Pokédex, and in what order, is in the game config (`pokedexes` in
+/// src/lib/games), so paired games such as Scarlet and Violet can share one.
 model Pokedex {
-  id        Int     @id
-  slug      String  @unique
-  name      String
-  /// Null for the National Pokédex.
-  gameId    String? @map("game_id")
-  sortOrder Int     @default(0) @map("sort_order")
+  id   Int    @id
+  slug String @unique
+  name String
 
-  game  Game?         @relation(fields: [gameId], references: [id])
   slots PokedexSlot[]
 
   @@map("pokedexes")

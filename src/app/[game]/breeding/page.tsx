@@ -4,6 +4,7 @@ import { BreedingSwitch } from '@/components/BreedingSwitch';
 import { getAiProvider } from '@/lib/ai';
 import { loadGoals } from '@/lib/breeding/goals';
 import { prisma } from '@/lib/db';
+import { gameDexes } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadRoster } from '@/lib/roster';
@@ -19,7 +20,7 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
     loadRoster(profileId, undefined, 'ROSTER'),
     // Only Pokémon obtainable in this game can be bred in it.
     prisma.species.findMany({
-      where: { pokedexSlots: { some: { pokedex: { gameId: game.id } } } },
+      where: { pokedexSlots: { some: { pokedex: gameDexes(game.id) } } },
       select: named,
       orderBy: { id: 'asc' },
     }),

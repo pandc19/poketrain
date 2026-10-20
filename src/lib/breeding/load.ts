@@ -1,6 +1,6 @@
 import { prisma } from '../db';
 import { getUserId } from '../current-user';
-import type { GameConfig } from '../games';
+import { gameDexes, type GameConfig } from '../games';
 import { IV_STATS, type BreedingData, type IvKnowledge, type LearnWay, type Owned, type OwnedPokemon } from './engine';
 
 /** Loads what the engine needs for a set of moves in one game. */
@@ -9,7 +9,7 @@ export async function loadBreedingData(game: GameConfig, moveIds: number[]): Pro
     prisma.species.findMany({
       select: { id: true, nameEn: true, nameEs: true, eggGroups: true, genderRate: true, evolvesFromId: true },
     }),
-    prisma.pokedexSlot.findMany({ where: { pokedex: { gameId: game.id } }, select: { speciesId: true } }),
+    prisma.pokedexSlot.findMany({ where: { pokedex: gameDexes(game.id) }, select: { speciesId: true } }),
     moveIds.length
       ? prisma.learnset.findMany({
           where: { moveId: { in: moveIds }, versionGroup: { in: game.learnsetVersionGroups } },

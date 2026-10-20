@@ -145,3 +145,17 @@ export const EXTRA_DEX_SLUG = 'extra';
 export function getGame(id: string): GameConfig | undefined {
   return GAMES.find((g) => g.id === id);
 }
+
+/**
+ * Query filter for the Pokédexes a game lists. Games and Pokédexes are linked here, by slug, rather
+ * than in the database, so paired games (Scarlet and Violet) can share the same Pokédexes.
+ */
+export function gameDexes(gameId: string): { slug: { in: string[] } } {
+  return { slug: { in: getGame(gameId)?.pokedexes.map((d) => d.slug) ?? [] } };
+}
+
+/** Where a Pokédex sits in the game's list, for ordering. One the game does not list goes last. */
+export function dexPosition(gameId: string, slug: string): number {
+  const i = getGame(gameId)?.pokedexes.findIndex((d) => d.slug === slug) ?? -1;
+  return i === -1 ? 999 : i;
+}

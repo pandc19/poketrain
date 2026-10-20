@@ -1,5 +1,5 @@
 import { prisma } from '../db';
-import type { GameConfig } from '../games';
+import { dexPosition, gameDexes, type GameConfig } from '../games';
 import { getPokeApi } from './client';
 import { loadEvolutionMethods } from './evolution';
 import type { Localized } from '../translate';
@@ -230,8 +230,8 @@ export async function loadPokemonInfo(
     }),
     game
       ? prisma.pokedexSlot.findMany({
-          where: { speciesId, pokedex: { gameId: game.id } },
-          select: { entryNumber: true, pokedex: { select: { slug: true, name: true, sortOrder: true } } },
+          where: { speciesId, pokedex: gameDexes(game.id) },
+          select: { entryNumber: true, pokedex: { select: { slug: true, name: true } } },
         })
       : Promise.resolve([]),
   ]);
@@ -311,7 +311,7 @@ export async function loadPokemonInfo(
         const last = game?.pokedexes.find((d) => d.slug === s.pokedex.slug)?.lastEntry;
         return last == null || s.entryNumber <= last;
       })
-      .sort((a, b) => a.pokedex.sortOrder - b.pokedex.sortOrder)
+      .sort((a, b) => dexPosition(game?.id ?? '', a.pokedex.slug) - dexPosition(game?.id ?? '', b.pokedex.slug))
       .map((s) => {
         // The game config knows each Pokédex by name in both languages.
         const configured = game?.pokedexes.find((d) => d.slug === s.pokedex.slug);
