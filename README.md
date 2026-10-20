@@ -1,6 +1,6 @@
 # Poké Train
 
-Track Pokédex progress and a trained competitive roster across Pokémon games. The first game module is **Pokémon Violet**.
+Track Pokédex progress and a trained competitive roster across Pokémon games. Games so far: **Pokémon Scarlet** and **Pokémon Violet**.
 
 - **Pokédex grid** per regional dex with click, shift-click range and drag-to-paint toggling. Each game also has its own **National Dex** tab: the same caught list as its regional dexes, with a badge on Pokémon you caught in your other games.
 - **Spreadsheet importer** (.csv / .xlsx) with a column-mapping step. Reads Spanish or English names and tolerates typos.
@@ -39,7 +39,7 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
    ```bash
    cp .env.local.example .env.local
    ```
-5. **Create the tables and seed the base rows** (your user, the Violet game and one save profile).
+5. **Create the tables and seed the base rows** (your user, the games and one save profile per game).
    ```bash
    npm run db:migrate
    npm run db:seed

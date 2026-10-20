@@ -51,6 +51,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             games={GAMES.map((g) => ({
               id: g.id,
               shortName: g.shortName,
+              pair: g.pair,
               theme: g.theme,
               breeding: g.features.breeding,
               exclusives: g.versionExclusives != null,

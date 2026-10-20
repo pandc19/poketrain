@@ -248,8 +248,8 @@ export async function loadPokemonInfo(
     : [];
   const abilityBySlug = new Map(abilityRows.map((a) => [a.slug, a]));
 
-  // Games name their Pokédex text by version; Violet's own entry comes first.
-  const prefer = game?.id === 'violet' ? ['violet', 'scarlet'] : [];
+  // Pokédex text is tagged by version: the game's own entry comes first, then its pair's.
+  const prefer = game ? [game.id, ...(game.pair ? [game.pair] : [])] : [];
   const flavors: FlavorEntry[] = speciesJson.flavor_text_entries ?? [];
   const genera: { genus: string; language: { name: string } }[] = speciesJson.genera ?? [];
   const genus = (lang: string) => genera.find((g) => g.language.name === lang)?.genus ?? null;

@@ -6,10 +6,14 @@ export type { VersionExclusives } from './exclusives';
 
 /**
  * Per-game configuration: the single extension point for adding a game.
- * A new game is a new entry here plus `npm run db:seed && npm run sync:pokeapi`.
+ * A new game is a new entry here plus `npm run db:seed && npm run sync:pokeapi` locally. Production
+ * never runs the seed, so the same PR adds a migration that inserts the game's row and a profile.
  */
 export type GameConfig = {
+  /** Also the PokéAPI version name ('violet'), which Pokédex text is tagged with. */
   id: string;
+  /** For games sold as a pair, the other version's id. */
+  pair?: string;
   name: string;
   shortName: string;
   generation: number;
@@ -91,11 +95,18 @@ export type GameConfig = {
 /** A pattern for the shell in the header (see `.dex-motif` in globals.css). */
 export type GameMotif = 'future' | 'ancient';
 
-export const GAMES: GameConfig[] = [
-  {
-    id: 'violet',
-    name: 'Pokémon Violet',
-    shortName: 'Violet',
+/**
+ * Scarlet and Violet share everything (map, Pokédexes, learnsets, mechanics) except their version
+ * exclusives and their look.
+ */
+function scarletViolet(version: 'scarlet' | 'violet', theme: GameConfig['theme']): GameConfig {
+  const other = version === 'violet' ? 'scarlet' : 'violet';
+  const name = version === 'violet' ? 'Violet' : 'Scarlet';
+  return {
+    id: version,
+    pair: other,
+    name: `Pokémon ${name}`,
+    shortName: name,
     generation: 9,
     versionGroup: 'scarlet-violet',
     learnsetVersionGroups: ['scarlet-violet', 'the-teal-mask', 'the-indigo-disk'],
@@ -130,13 +141,19 @@ export const GAMES: GameConfig[] = [
       mirrorHerb: true,
       judge: true,
     },
-    theme: { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd', lightAccent: '#6d28d9', screenHue: 290, motif: 'future' },
+    theme,
     catalog: [...SCARLET_VIOLET_CATALOG, ...SCARLET_VIOLET_BREEDING_CATALOG],
     locationNote:
       'Paldea is one open map and you can fast travel almost anywhere, so for each place give the area and the nearest fast-travel point, town or landmark to travel to. ' +
       'Kitakami and Blueberry Academy are separate DLC maps: say which map it is, and the nearest region of that map.',
-    versionExclusives: scarletVioletExclusives('violet'),
-  },
+    versionExclusives: scarletVioletExclusives(version),
+  };
+}
+
+/** In display order. The first one is where `/` goes. */
+export const GAMES: GameConfig[] = [
+  scarletViolet('violet', { from: '#7c3aed', to: '#4c1d95', accent: '#c4b5fd', lightAccent: '#6d28d9', screenHue: 290, motif: 'future' }),
+  scarletViolet('scarlet', { from: '#dc2626', to: '#7f1d1d', accent: '#fca5a5', lightAccent: '#b91c1c', screenHue: 25, motif: 'ancient' }),
 ];
 
 export const NATIONAL_DEX_SLUG = 'national';
