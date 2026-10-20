@@ -51,9 +51,9 @@ model Species {
   locations      PokemonLocation[]
   pokedexSlots   PokedexSlot[]
   pokedexEntries PokedexEntry[]
-  roster         RosterPokemon[]  @relation("RosterSpecies")
-  rosterBase     RosterPokemon[]  @relation("RosterBaseSpecies")
-  rosterFinal    RosterPokemon[]  @relation("RosterFinalSpecies")
+  roster         RosterPokemon[]   @relation("RosterSpecies")
+  rosterBase     RosterPokemon[]   @relation("RosterBaseSpecies")
+  rosterFinal    RosterPokemon[]   @relation("RosterFinalSpecies")
   breedingGoals  BreedingGoal[]
   opponents      BattleOpponent[]
 
@@ -117,11 +117,13 @@ model Learnset {
 }
 
 model Ability {
-  id     Int    @id
-  slug   String @unique
-  nameEn String @map("name_en")
-  nameEs String @map("name_es")
-  /** What it does, in a sentence (PokéAPI short effect / flavor text). */
+  id            Int     @id
+  slug          String  @unique
+  nameEn        String  @map("name_en")
+  nameEs        String  @map("name_es")
+  /**
+   * What it does, in a sentence (PokéAPI short effect / flavor text).
+   */
   descriptionEn String? @map("description_en")
   descriptionEs String? @map("description_es")
 
@@ -222,15 +224,101 @@ model SyncState {
 // User data
 // ============================================================================
 
-model User {
-  id        String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
+enum UserRole {
+  ADMIN
+  USER
+}
 
-  profiles  GameProfile[]
-  locations PokemonLocation[]
+model User {
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name         String
+  /// Lower case. Null for the demo user, which nobody logs in as.
+  email        String?  @unique
+  passwordHash String?  @map("password_hash")
+  role         UserRole @default(USER)
+  /// Can use the AI features (the admin switches it on per user).
+  aiEnabled    Boolean  @default(false) @map("ai_enabled")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  profiles       GameProfile[]
+  locations      PokemonLocation[]
+  sessions       Session[]
+  passwordResets PasswordReset[]
+  invitesCreated Invite[]          @relation("InviteCreator")
+  invitesUsed    Invite[]          @relation("InviteUser")
 
   @@map("users")
+}
+
+/// A login. It never expires: it ends when the player logs out or the admin removes it. Only the hash
+/// of the token is kept; the token itself lives in the player's cookie.
+model Session {
+  id         String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  createdAt  DateTime @default(now()) @map("created_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+enum InviteRequestStatus {
+  PENDING
+  INVITED
+  DECLINED
+}
+
+/// Someone asking for an invite from the public page. The admin answers it by hand.
+model InviteRequest {
+  id        String              @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name      String
+  email     String
+  /// What games they play, or anything else they want to say.
+  message   String?
+  status    InviteRequestStatus @default(PENDING)
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  invite Invite?
+
+  @@index([status, createdAt])
+  @@map("invite_requests")
+}
+
+/// A single-use link to register. Only the hash of its code is kept; the admin gets the link once.
+model Invite {
+  id          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  codeHash    String    @unique @map("code_hash")
+  /// When set, only this email can use it.
+  email       String?
+  requestId   String?   @unique @map("request_id") @db.Uuid
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  usedAt      DateTime? @map("used_at")
+  usedById    String?   @map("used_by_id") @db.Uuid
+
+  request   InviteRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  createdBy User?          @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  usedBy    User?          @relation("InviteUser", fields: [usedById], references: [id], onDelete: SetNull)
+
+  @@map("invites")
+}
+
+/// A single-use link to choose a new password, made by the admin.
+model PasswordReset {
+  id        String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
 }
 
 model GameProfile {
@@ -320,25 +408,25 @@ enum PokemonRole {
 /// One trained (or to-be-trained) Pokémon. Each trainable aspect carries its
 /// own PENDING/DONE status; the card is complete when all of them are DONE.
 model RosterPokemon {
-  id            String  @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  profileId     String  @map("profile_id") @db.Uuid
+  id             String  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId      String  @map("profile_id") @db.Uuid
   /// The stage it is at right now, e.g. Vigoroth. Stats, abilities and moves are read from this one.
-  speciesId     Int     @map("species_id")
-  formId        Int?    @map("form_id")
+  speciesId      Int     @map("species_id")
+  formId         Int?    @map("form_id")
   /// The species bred or caught to get there, e.g. Geodude.
-  baseSpeciesId Int?    @map("base_species_id")
+  baseSpeciesId  Int?    @map("base_species_id")
   /// Marked by the player: a "keeper": finished and kept (shown with crossed swords), and being trained right now. Only marks and filters.
-  keeper    Boolean @default(false)
-  training  Boolean @default(false)
+  keeper         Boolean @default(false)
+  training       Boolean @default(false)
   /// Left out of the breeding plans, so a repeated Pokémon can be kept recorded without counting.
-  breedingOff Boolean @default(false) @map("breeding_off")
+  breedingOff    Boolean @default(false) @map("breeding_off")
   /// The stage it is meant to end as, e.g. Slaking while it is a Slakoth. Null = the stage it is at now is the final one.
-  finalSpeciesId Int?   @map("final_species_id")
-  nickname      String?
-  gender        Gender  @default(UNKNOWN)
-  origin        Origin  @default(UNKNOWN)
+  finalSpeciesId Int?    @map("final_species_id")
+  nickname       String?
+  gender         Gender  @default(UNKNOWN)
+  origin         Origin  @default(UNKNOWN)
   /// False until the Pokémon is actually in the player's possession.
-  owned         Boolean @default(false)
+  owned          Boolean @default(false)
 
   targetNatureId  Int?       @map("target_nature_id")
   currentNatureId Int?       @map("current_nature_id")
@@ -440,18 +528,18 @@ model RosterMove {
 }
 
 model BreedingGoal {
-  id            String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  profileId     String         @map("profile_id") @db.Uuid
-  speciesId     Int            @map("species_id")
+  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId     String   @map("profile_id") @db.Uuid
+  speciesId     Int      @map("species_id")
   /// Move ids the offspring should know.
-  moveIds       Int[]          @map("move_ids")
-  natureId      Int?           @map("nature_id")
+  moveIds       Int[]    @map("move_ids")
+  natureId      Int?     @map("nature_id")
   /// Stats whose IV must be 31 (stat keys: hp, attack, defense, specialAttack, specialDefense, speed).
-  ivTargets     String[]       @default([]) @map("iv_targets")
+  ivTargets     String[] @default([]) @map("iv_targets")
   /// The offspring should have the hidden ability.
-  hiddenAbility Boolean        @default(false) @map("hidden_ability")
+  hiddenAbility Boolean  @default(false) @map("hidden_ability")
   notes         String?
-  createdAt     DateTime       @default(now()) @map("created_at")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species Species     @relation(fields: [speciesId], references: [id])
@@ -531,32 +619,32 @@ enum BattleKind {
 /// A Pokémon the player has to beat, saved so the counters can be looked at again and the
 /// entry cloned (to change the Tera type, say). What to use against it is computed, not stored.
 model BattleOpponent {
-  id         String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  profileId  String     @map("profile_id") @db.Uuid
-  speciesId  Int        @map("species_id")
+  id           String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  profileId    String     @map("profile_id") @db.Uuid
+  speciesId    Int        @map("species_id")
   /// A specific form (regional form...); null = the species' default form.
-  formId     Int?       @map("form_id")
-  kind       BattleKind @default(STANDARD)
+  formId       Int?       @map("form_id")
+  kind         BattleKind @default(STANDARD)
   /// Tera type of a raid boss; replaces its types when defending. Null = not Terastallized.
-  teraType   String?    @map("tera_type")
+  teraType     String?    @map("tera_type")
   /// Raid star level, 1..7.
-  stars      Int?
-  abilityId  Int?       @map("ability_id")
+  stars        Int?
+  abilityId    Int?       @map("ability_id")
   /// Moves the player has seen it use (up to 4). When set, the hits a counter takes come from
   /// these instead of from the opponent's own types.
-  moveIds    Int[]      @default([]) @map("move_ids")
+  moveIds      Int[]      @default([]) @map("move_ids")
   /// The player's own label, e.g. "Charizard 7★ raid".
-  label      String?
-  notes      String?
-  createdAt  DateTime   @default(now()) @map("created_at")
+  label        String?
+  notes        String?
+  createdAt    DateTime   @default(now()) @map("created_at")
   /// Set when put away: it stays saved but is kept out of the open list.
-  archivedAt DateTime?  @map("archived_at")
+  archivedAt   DateTime?  @map("archived_at")
   /// Set when the player has beaten it; it stays in the list, marked.
-  defeatedAt DateTime?  @map("defeated_at")
+  defeatedAt   DateTime?  @map("defeated_at")
   /// The roster entry the player found best against it. Kept across refreshes; a stale id is ignored.
-  bestRosterId String? @map("best_roster_id") @db.Uuid
+  bestRosterId String?    @map("best_roster_id") @db.Uuid
   /// What the counters looked like when it was marked defeated: shown as is while it stays defeated.
-  frozen     Json?
+  frozen       Json?
 
   profile GameProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   species Species     @relation(fields: [speciesId], references: [id])

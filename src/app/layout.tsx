@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Chakra_Petch, Figtree } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
+import { getUser } from "@/lib/current-user";
 import { prisma } from "@/lib/db";
 import { GAMES } from "@/lib/games";
 import { getLang, getT } from "@/lib/i18n";
@@ -30,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [lang, theme] = await Promise.all([getLang(), getTheme()]);
+  const [lang, theme, user] = await Promise.all([getLang(), getTheme(), getUser()]);
   // Item names come from the game data when it has them, so what the catalog says to search
   // for is what the game really calls the item (the names written in the catalog are a fallback).
   const slugs = [...new Set(GAMES.flatMap((g) => g.catalog.flatMap((s) => s.entries.map((e) => e.item ?? e.sprite ?? ""))))].filter(Boolean);
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <LangProvider lang={lang}>
           <Header
+            user={{ name: user.name, admin: user.role === 'ADMIN', demo: user.isDemo }}
             games={GAMES.map((g) => ({
               id: g.id,
               shortName: g.shortName,
