@@ -38,6 +38,7 @@ export function RosterBoard({
   evs,
   evTarget,
   tera,
+  mints,
   breeding,
   aiEnabled,
   accent,
@@ -60,6 +61,8 @@ export function RosterBoard({
   evTarget: boolean;
   /** The game has Tera types. */
   tera: boolean;
+  /** The game has Mints. */
+  mints: boolean;
   /** The game has breeding, so a nature can start a breeding plan. */
   breeding: boolean;
   aiEnabled: boolean;
@@ -394,12 +397,14 @@ export function RosterBoard({
     void setSlot(empty + 1, id, false);
   }
 
-  async function audit(p: RosterView, refresh = false, deep = false) {
+  async function audit(p: RosterView, refresh = false, deep = false, quick = false) {
     setAuditing(p.id);
     setAuditShown(p.id, true);
     setError(null);
     try {
-      const data = await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh, deep });
+      const data = quick
+        ? await api<{ pokemon: RosterView }>('/api/audit/quick', 'POST', { rosterPokemonId: p.id })
+        : await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh, deep });
       replace(data.pokemon);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('The audit failed.'));
@@ -573,7 +578,7 @@ export function RosterBoard({
       {view === 'list' && !aiEnabled && (
         <p className="mb-3 text-xs text-muted">
           {t(
-            'AI audits are off: no API key is configured. Move legality checks still run, since they use game data rather than AI.'
+            'AI audits are off: no API key is configured. The quick audit and the move legality checks still run, since they use game data rather than AI.'
           )}
         </p>
       )}
@@ -718,6 +723,8 @@ export function RosterBoard({
               judge={judge}
               evs={evs}
               evTarget={evTarget}
+              tera={tera}
+              mints={mints}
               breeding={breeding}
               estimate={estimateFor(selected)}
               numberLabel={numberLabel(selected)}
@@ -734,6 +741,7 @@ export function RosterBoard({
               onPotential={(v) => changePotential(selected, v)}
               onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}
               onAudit={(refresh, deep) => audit(selected, refresh, deep)}
+              onQuickAudit={() => audit(selected, false, false, true)}
               onToggleAudit={() => setAuditShown(selected.id, hiddenAudits.has(selected.id))}
               onBreeder={(on) => setBreeder(selected, on)}
               onRemove={() => setRemoving(selected)}

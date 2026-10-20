@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCachedLocations } from './useCachedLocations';
+import { createContext, useContext } from 'react';
 import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
 import { SourceRow, filterSources, type EvSource } from './EvSources';
@@ -86,6 +87,9 @@ function SourceGroup({
 }
 
 /** One part of the audit in its own box, with a button that fixes it (and takes the fix away). */
+/** Only an audit an AI wrote has AI badges on its sections. */
+const MadeByAi = createContext(true);
+
 function Box({
   title,
   fixed,
@@ -104,13 +108,14 @@ function Box({
   children: React.ReactNode;
 }) {
   const { t } = useT();
+  const byAi = useContext(MadeByAi);
   return (
     <section className={`rounded-lg border bg-surface p-3 ${fixed ? 'border-done/50' : 'border-line'}`}>
       <div className="mb-1 flex items-center justify-between gap-2">
         <h4 className="section-title">
           {fixed && <span className="mr-1 text-done">✓</span>}
           {title}
-          {ai && !fixed && <AiBadge className="ml-2" />}
+          {ai && byAi && !fixed && <AiBadge className="ml-2" />}
         </h4>
         {onToggle && (
           <button
@@ -148,8 +153,7 @@ export function AuditPanel({
   audit,
   auditLang,
   meta,
-  onRefresh,
-  onDeep,
+  madeBy = 'ai',
   onChangeLanguage,
   busy,
 }: {
@@ -179,9 +183,8 @@ export function AuditPanel({
   /** The language the saved answer is written in. */
   auditLang?: string;
   meta: string;
-  onRefresh?: () => void;
-  /** Re-run on the stronger escalation model. */
-  onDeep?: () => void;
+  /** Written by an AI, made by the quick audit's rules, or built from the parts the player fixed. */
+  madeBy?: 'ai' | 'rules' | 'fixed';
   /** Get the audit in the selected language: a saved copy if there is one, otherwise a new request. */
   onChangeLanguage?: () => void;
   busy: boolean;
@@ -242,6 +245,7 @@ export function AuditPanel({
   const otherLanguage = auditLang != null && auditLang !== lang;
 
   return (
+    <MadeByAi.Provider value={madeBy === 'ai'}>
     <div className="mt-3 space-y-3 rounded-lg bg-surface-2 p-3 text-xs">
       {otherLanguage && (
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-star/40 bg-star/10 px-2 py-1.5 text-star">
@@ -266,7 +270,8 @@ export function AuditPanel({
       {compare && compare.length > 0 && (
         <section className="rounded-lg border border-line bg-surface p-3">
           <h4 className="section-title mb-2">
-            {t('Now vs AI')} <AiBadge className="ml-1" />
+            {madeBy === 'rules' ? t('Now vs quick audit') : madeBy === 'fixed' ? t('Now vs audit') : t('Now vs AI')}{' '}
+            {madeBy === 'ai' && <AiBadge className="ml-1" />}
           </h4>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
             {compare.map((r) => (
@@ -409,24 +414,15 @@ export function AuditPanel({
         </Box>
       )}
 
-      <p className="flex items-center justify-between text-[10px] text-muted">
-        <span>
-          {t('AI-generated ({meta}). Check locations in game before relying on them.', { meta })}
-          {auditLang && ` · ${languageName(auditLang)}`}
-        </span>
-        <span className="flex gap-3">
-          {onRefresh && (
-            <button onClick={onRefresh} disabled={busy} className="underline disabled:opacity-40">
-              {busy ? t('Refreshing…') : t('Re-run')}
-            </button>
-          )}
-          {onDeep && (
-            <button onClick={onDeep} disabled={busy} className="underline disabled:opacity-40">
-              {t('Re-run with the stronger model')}
-            </button>
-          )}
-        </span>
+      <p className="text-[10px] text-muted">
+        {madeBy === 'rules'
+          ? t('Rule-based suggestion from game data ({meta}). An AI audit looks deeper.', { meta })
+          : madeBy === 'fixed'
+            ? t('Built from the parts you fixed. Nothing was asked of an AI.')
+            : t('AI-generated ({meta}). Check locations in game before relying on them.', { meta })}
+        {auditLang && ` · ${languageName(auditLang)}`}
       </p>
     </div>
+    </MadeByAi.Provider>
   );
 }

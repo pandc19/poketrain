@@ -1,14 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AiBadge } from '../AiBadge';
 import { AuditPanel } from '../AuditPanel';
+import { BoltIcon, EyeIcon, EyeOffIcon, SparklesIcon } from '../ActionIcons';
+import { ConfirmDialog } from '../Dialog';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
 import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
 import { mintInForce } from '@/lib/mint';
+import { auditAsk } from '@/lib/audit-ask';
 import { auditSuggestions } from '@/lib/audit-compare';
 import { evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
@@ -163,7 +166,14 @@ function Section({ title, columns, children }: { title: string; columns?: 2 | 3;
   );
 }
 
-/** The AI audit's answer for one field: it matches what the Pokémon has, or here is what it suggests. */
+/**
+ * Who made the audit being shown, so its suggestions are not all called the AI's: a model, the rules of the
+ * quick audit, or the parts the player fixed (when nothing was left to ask).
+ */
+type MadeBy = 'ai' | 'rules' | 'fixed';
+const SuggestedBy = createContext<MadeBy>('ai');
+
+/** The audit's answer for one field: it matches what the Pokémon has, or here is what it suggests. */
 function Suggestion({
   same,
   title,
@@ -177,13 +187,19 @@ function Suggestion({
   children: React.ReactNode;
 }) {
   const { t } = useT();
+  const by = useContext(SuggestedBy);
   if (same) {
-    return <p className="mt-1 text-[11px] text-done">✓ {t('Matches the AI audit')}</p>;
+    return (
+      <p className="mt-1 text-[11px] text-done">
+        ✓ {by === 'rules' ? t('Matches the quick audit') : by === 'fixed' ? t('Matches the audit') : t('Matches the AI audit')}
+      </p>
+    );
   }
   return (
     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]" title={title}>
       <span className="text-pending">
-        <AiBadge className="mr-1" /> {t('AI suggests')}: <span className="font-medium">{children}</span>
+        {by === 'ai' && <AiBadge className="mr-1" />} {by === 'rules' ? t('Quick audit suggests') : by === 'fixed' ? t('The audit suggests') : t('AI suggests')}:{' '}
+        <span className="font-medium">{children}</span>
       </span>
       {onApply && (
         <button
@@ -282,6 +298,8 @@ export function RosterDetail({
   judge,
   evs,
   evTarget,
+  tera,
+  mints,
   breeding,
   estimate,
   numberLabel,
@@ -294,6 +312,7 @@ export function RosterDetail({
   onPotential,
   onSaveStats,
   onAudit,
+  onQuickAudit,
   onToggleAudit,
   onBreeder,
   onRemove,
@@ -309,6 +328,10 @@ export function RosterDetail({
   judge: boolean;
   evs: boolean;
   evTarget: boolean;
+  /** The game has Tera types. */
+  tera: boolean;
+  /** The game has Mints. */
+  mints: boolean;
   /** The game has breeding: a nature can start a breeding plan. */
   breeding: boolean;
   estimate?: EvEstimateInfo;
@@ -329,6 +352,8 @@ export function RosterDetail({
   onPotential: (v: RosterView['potential']) => void;
   onSaveStats: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   onAudit: (refresh: boolean, deep: boolean) => void;
+  /** The audit made from game data alone, which needs no AI. */
+  onQuickAudit: () => void;
   onToggleAudit: () => void;
   /** Adds it to, or takes it off, the breeders. */
   onBreeder: (on: boolean) => void;
@@ -347,6 +372,8 @@ export function RosterDetail({
   };
 
   const [error, setError] = useState<string | null>(null);
+  // A new audit replaces the one the card shows, so it is confirmed when there is one.
+  const [replacing, setReplacing] = useState<'quick' | 'ai' | null>(null);
   const [nickname, setNickname] = useState(p.nickname ?? '');
   const savedEvs = p.evs ? formatEvs(p.evs) : '';
   const [targetEvs, setTargetEvs] = useState(savedEvs);
@@ -494,7 +521,11 @@ export function RosterDetail({
     void save({ moves: changes });
   }
 
+  const madeBy: MadeBy = p.audit?.provider === 'rules' ? 'rules' : p.audit?.provider === 'fixed' ? 'fixed' : 'ai';
+  // With every part fixed an AI audit has nothing to ask, so it costs nothing (see auditAsk).
+  const asksNothing = auditAsk(p, { hasEvs: evs, hasTera: tera, hasMint: mints }).nothingToAsk;
   return (
+    <SuggestedBy.Provider value={madeBy}>
     <article className="@container rounded-xl border border-line bg-surface p-4">
       {/* ---------- header ---------- */}
       <header className="flex flex-wrap items-start gap-4">
@@ -880,7 +911,12 @@ export function RosterDetail({
             {sug.moves && (
               <div className="rounded-md border border-line bg-bg p-2 text-[11px]">
                 <p className="mb-1 text-muted">
-                  <AiBadge className="mr-1" /> {t('AI suggests, in order. Tap one to put it in that slot.')}
+                  {madeBy === 'ai' && <AiBadge className="mr-1" />}{' '}
+                  {madeBy === 'rules'
+                    ? t('The quick audit suggests, in order. Tap one to put it in that slot.')
+                    : madeBy === 'fixed'
+                      ? t('The audit suggests, in order. Tap one to put it in that slot.')
+                      : t('AI suggests, in order. Tap one to put it in that slot.')}
                 </p>
                 <ol className="space-y-1">
                   {sug.moves.slice(0, 4).map((m, i) => {
@@ -956,15 +992,37 @@ export function RosterDetail({
         </div>
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 flex flex-wrap gap-2">
+        {p.audit && (
+          <button
+            onClick={onToggleAudit}
+            disabled={auditing}
+            className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+          >
+            {auditOpen ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
+            {auditOpen ? t('Hide audit') : t('Show audit')}
+          </button>
+        )}
         <button
-          onClick={() => (p.audit ? onToggleAudit() : onAudit(false, false))}
-          disabled={(!aiEnabled && !p.audit) || auditing}
-          title={aiEnabled ? undefined : t('Add an API key to .env.local to enable AI audits')}
-          className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+          onClick={() => (p.audit ? setReplacing('quick') : onQuickAudit())}
+          disabled={auditing}
+          title={t('Suggests a nature, EVs, four moves, an item and a Tera type from the game data. Free and instant, no AI.')}
+          className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
         >
-          {auditing ? t('Auditing…') : p.audit ? (auditOpen ? t('Hide audit') : t('Show audit')) : t('AI audit')}
+          <BoltIcon size={14} />
+          {auditing ? t('Auditing…') : t('Quick audit')}
         </button>
+        {/* The AI audit looks deeper; it is only offered where AI is on. Run again, it asks the AI again. */}
+        {aiEnabled && (
+          <button
+            onClick={() => (p.audit ? setReplacing('ai') : onAudit(false, false))}
+            disabled={auditing}
+            className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+          >
+            <SparklesIcon size={14} />
+            {t('AI audit')}
+          </button>
+        )}
       </div>
 
       {auditOpen && p.audit && (
@@ -994,14 +1052,42 @@ export function RosterDetail({
           onLockPlan={(spread) => void save({ evs: spread })}
           onUnlockPlan={() => void save({ evs: null })}
           audit={p.audit.result as Parameters<typeof AuditPanel>[0]['audit']}
-          auditLang={p.audit.lang}
+          // Fixed parts keep the words they were saved with, so there is no language to change.
+          auditLang={madeBy === 'fixed' ? undefined : p.audit.lang}
           meta={`${p.audit.provider} · ${p.audit.model}`}
-          onRefresh={aiEnabled ? () => onAudit(true, false) : undefined}
-          onDeep={aiEnabled ? () => onAudit(false, true) : undefined}
-          onChangeLanguage={aiEnabled ? () => onAudit(false, false) : undefined}
+          madeBy={madeBy}
+          onChangeLanguage={madeBy === 'rules' ? onQuickAudit : madeBy === 'ai' && aiEnabled ? () => onAudit(false, false) : undefined}
           busy={auditing}
         />
       )}
+
+      <ConfirmDialog
+        open={replacing != null}
+        title={t('Replace the current audit?')}
+        confirmLabel={t('Replace')}
+        onConfirm={() => {
+          const next = replacing;
+          setReplacing(null);
+          if (next === 'quick') onQuickAudit();
+          // An AI audit shown now is asked again; any other is replaced, reusing a saved AI answer if the build is unchanged.
+          else if (next === 'ai') onAudit(madeBy === 'ai', false);
+        }}
+        onCancel={() => setReplacing(null)}
+      >
+        <p>
+          {replacing === 'ai'
+            ? asksNothing
+              ? t('Every part is fixed, so nothing will be asked of the AI and your AI key is not used. The audit is rebuilt from your fixed parts.')
+              : madeBy === 'ai'
+                ? t('The AI audit on this card will be asked again and replaced. This uses your AI key. Parts you have fixed stay.')
+                : t('The audit on this card will be replaced by an AI audit, which uses your AI key. Parts you have fixed stay.')
+            : madeBy === 'rules'
+              ? t('The quick audit on this card will be made again from the current data. Parts you have fixed stay.')
+              : madeBy === 'fixed'
+                ? t('The audit on this card, built from your fixed parts, will be replaced by a quick audit. Parts you have fixed stay.')
+                : t('The AI audit on this card will be replaced by a quick audit. Parts you have fixed stay.')}
+        </p>
+      </ConfirmDialog>
 
       <datalist id="detail-moves">
         {options.moves.map((m) => (
@@ -1015,5 +1101,6 @@ export function RosterDetail({
         ))}
       </datalist>
     </article>
+    </SuggestedBy.Provider>
   );
 }

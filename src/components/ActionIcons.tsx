@@ -92,3 +92,34 @@ export const EggIcon = (p: IconProps) => (
     <path d="m8.5 13 2 1.5 1.5-2 1.5 2 2-1.5" />
   </Svg>
 );
+
+/** An eye: show something that is hidden. */
+export const EyeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+);
+
+/** An eye crossed out: hide something. */
+export const EyeOffIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <path d="M4 4l16 16" />
+  </Svg>
+);
+
+/** A lightning bolt: quick, instant. */
+export const BoltIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
+  </Svg>
+);
+
+/** Sparkles: made by AI. */
+export const SparklesIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M10 3l1.8 5.2L17 10l-5.2 1.8L10 17l-1.8-5.2L3 10l5.2-1.8z" />
+    <path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z" />
+  </Svg>
+);
