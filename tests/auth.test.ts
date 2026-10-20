@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { COOKIE_MAX_AGE, RENEW_AFTER_MS, shouldRenew } from '@/lib/auth/cookie';
 import { hashPassword, verifyAgainstNothing, verifyPassword } from '@/lib/auth/password';
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { clear, isLimited, record, take } from '@/lib/auth/rate-limit';
 import { hashToken, newToken } from '@/lib/auth/tokens';
 
@@ -29,6 +30,11 @@ describe('passwords', () => {
     expect(await verifyPassword('x', 'not a hash')).toBe(false);
     expect(await verifyPassword('x', 'scrypt$abc$8$1$c2FsdA==$aGFzaA==')).toBe(false);
     expect(await verifyPassword('x', 'bcrypt$10$8$1$c2FsdA==$aGFzaA==')).toBe(false);
+  });
+
+  it('asks for 8 characters at least, and caps the length', () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(8);
+    expect(MAX_PASSWORD_LENGTH).toBeGreaterThan(MIN_PASSWORD_LENGTH);
   });
 
   it('takes time to refuse an unknown email as well, and always refuses', async () => {

@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { register } from '@/app/auth/actions';
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { useT } from '@/lib/translate-client';
 import { AuthError, Field, SubmitButton } from './parts';
 
@@ -19,7 +20,7 @@ export function RegisterForm({ invite, email }: { invite: string; email: string 
         name="password"
         type="password"
         autoComplete="new-password"
-        hint={t('At least 10 characters.')}
+        hint={t('At least {n} characters.', { n: MIN_PASSWORD_LENGTH })}
       />
       <Field label={t('Repeat the password')} name="confirm" type="password" autoComplete="new-password" />
       <SubmitButton pending={pending}>{pending ? t('Creating your account…') : t('Create account')}</SubmitButton>

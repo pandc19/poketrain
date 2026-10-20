@@ -9,7 +9,7 @@ import {
   requestInvite as saveInviteRequest,
   resetPassword as saveNewPassword,
 } from '@/lib/auth/accounts';
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/password';
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { clear, isLimited, record, take } from '@/lib/auth/rate-limit';
 import { endSession, startSession } from '@/lib/auth/session';
 

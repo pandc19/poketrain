@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { useT } from '@/lib/translate-client';
 import type { AuthErrorCode } from '@/app/auth/actions';
 
@@ -82,7 +83,7 @@ export function AuthError({ code }: { code?: AuthErrorCode }) {
     'rate-limit': t('Too many attempts. Try again in a few minutes.'),
     email: t('Use a valid email address.'),
     name: t('Enter your name.'),
-    'password-short': t('The password needs at least 10 characters.'),
+    'password-short': t('The password needs at least {n} characters.', { n: MIN_PASSWORD_LENGTH }),
     'password-mismatch': t('The two passwords are not the same.'),
     invite: t('This invite link is not valid, or it has already been used.'),
     'email-mismatch': t('This invite is for a different email address.'),

@@ -96,7 +96,8 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - Passwords: scrypt, the cost kept in the hash. Invite, reset and login tokens: 256 random bits, stored only as a SHA-256 hash.
 - The login, request and register forms are server actions that return short error codes (never text), so every message goes through `t()`. Limits are in memory: failed logins per address and per email, requests per address, and a honeypot on the request form.
 - A new account has a profile for every game until accounts choose their games (PR 12).
-- Until the admin page (PR 9), the owner uses `npm run accounts`: `admin`, `invite`, `requests`, `reset`, `users`.
+- Until the admin page (PR 9), the owner uses `npm run accounts`: `admin`, `invite`, `requests`, `reset`, `users`. PR 9 moves invites, requests, users and password links into the page and drops those commands. `admin` (the owner's first login) and `reset` stay as a recovery tool: they are what is needed when nobody can log in, which the page cannot help with.
+- A password needs 8 characters at least (`src/lib/auth/rules.ts`); the forms show the same number.
 - The existing user became the admin by migration, and a `Demo` user (no email, no password) was added with a profile per game. Whoever is not logged in is the demo.
 
 ## Admin config page (`/admin`)

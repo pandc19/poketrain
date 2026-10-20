@@ -15,7 +15,7 @@ import { createInterface } from 'node:readline';
 import { prisma } from '../src/lib/db';
 import { LOCAL_USER_ID } from '../src/lib/constants';
 import { createInvite, createPasswordReset, normalizeEmail, setCredentials } from '../src/lib/auth/accounts';
-import { MIN_PASSWORD_LENGTH } from '../src/lib/auth/password';
+import { MIN_PASSWORD_LENGTH } from '../src/lib/auth/rules';
 
 const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 
