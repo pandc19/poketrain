@@ -5,6 +5,7 @@ import { useParams, usePathname } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { motion } from 'motion/react';
 import { setLang } from '@/app/actions';
+import { logout } from '@/app/auth/actions';
 import { CatalogButton } from './CatalogDialog';
 import { ShellMotif } from './ShellMotif';
 import { ThemeToggle } from './ThemeToggle';
@@ -26,7 +27,9 @@ type GameLink = {
 // Planned modules, shown as empty cartridge slots.
 const COMING_SOON = ['Legends: Z-A'];
 
-export function Header({ games }: { games: GameLink[] }) {
+type HeaderUser = { name: string; admin: boolean; demo: boolean };
+
+export function Header({ games, user }: { games: GameLink[]; user: HeaderUser }) {
   const { t, lang } = useT();
   const pathname = usePathname();
   const params = useParams<{ game?: string }>();
@@ -185,6 +188,22 @@ export function Header({ games }: { games: GameLink[] }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {user.demo ? (
+            <Link href="/login" className="rounded-md bg-black/20 px-3 py-1.5 font-display text-xs font-semibold text-white hover:bg-black/30">
+              {t('Log in')}
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-white/90">
+              <span className="hidden max-w-32 truncate sm:inline" title={user.name}>
+                {user.name}
+              </span>
+              <form action={logout}>
+                <button type="submit" className="rounded-md bg-black/20 px-3 py-1.5 font-display font-semibold text-white hover:bg-black/30">
+                  {t('Log out')}
+                </button>
+              </form>
+            </div>
+          )}
           <ThemeToggle />
           <div className="flex items-center rounded-md bg-black/20 p-0.5 text-xs shadow-inner" aria-label={t('Language')}>
             {(['es', 'en'] as const).map((l) => (

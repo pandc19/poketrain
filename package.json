@@ -12,6 +12,7 @@
     "db:seed": "DOTENV_CONFIG_PATH=.env.local tsx --import dotenv/config prisma/seed.ts",
     "db:reset": "DOTENV_CONFIG_PATH=.env.local tsx --import dotenv/config scripts/db-reset.ts",
     "locations:import-legacy": "DOTENV_CONFIG_PATH=.env.local tsx --import dotenv/config scripts/import-legacy-locations.ts",
+    "accounts": "DOTENV_CONFIG_PATH=.env.local tsx --import dotenv/config scripts/accounts.ts",
     "sync:pokeapi": "DOTENV_CONFIG_PATH=.env.local tsx --import dotenv/config scripts/sync-pokeapi.ts",
     "test": "vitest run",
     "postinstall": "prisma generate"

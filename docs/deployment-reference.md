@@ -65,6 +65,13 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 
 `PORT=3000` and `HOSTNAME=0.0.0.0` are set in the image. The names mirror [.env.local.example](../.env.local.example); keep the two in sync when a variable is added.
 
+## Accounts
+
+The app has logins (see [Accounts](../README.md#accounts)). Nothing extra runs for them: sessions, invites and password resets are rows in the app's own database, and there is no email service. Two things to know when deploying:
+
+- **The owner has no login after the migration.** Until `npm run accounts -- admin` is run against the production database (point `DATABASE_URL` at it through the tunnel in [database-transfer.md](database-transfer.md); set `APP_URL` to the public address first so the links it prints are right), everyone sees the demo and the owner cannot log in.
+- **The demo is its own user.** Its data is whatever was copied into it; visitors can edit it.
+
 ## Postgres
 
 - Resource `shared-postgres` (PostgreSQL 18, the same major version as local development and the dump). Not publicly exposed.

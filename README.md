@@ -83,6 +83,7 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 | `npm run build` | Production build |
 | `npm run db:studio` | Opens Prisma Studio to browse the data |
 | `npm run db:reset` | **Deletes all data** in the database (roster, Pokédex, breeding plans, AI cache, and the Pokémon reference data) but keeps the tables. It does nothing else and runs no migration. Afterwards run `npm run db:seed` and then `npm run sync:pokeapi` |
+| `npm run accounts -- <task>` | Account tasks by hand: `admin` (the owner's login), `invite`, `requests`, `reset`, `users`. See [Accounts](#accounts) |
 | `npm run locations:import-legacy` | One-off: moves the "where do I catch it?" answers saved in the old per-user AI cache into the shared location dictionary. Safe to repeat. Reads `DATABASE_URL` from `.env.local` |
 | `docker exec -it postgres18 psql -U poketrain -d poketrain_dev` | Opens a SQL shell on the database |
 
@@ -92,6 +93,16 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 - **Port 3000 is taken:** `npm run dev -- -p 3001`.
 - **Empty Pokédex:** the reference data has not been synced. Run `npm run sync:pokeapi`.
 - **AI button says "not configured":** add a key to `.env.local` and restart the dev server.
+
+## Accounts
+
+Anyone who is not logged in uses the shared **demo** (its own copy of the data, which visitors can edit). Accounts are **by invitation**: people ask on `/request-invite`, and the owner sends them a one-time link. There is no email service, so links are made and sent by hand until the admin page exists.
+
+1. **Log in as the owner.** Your data belongs to the owner account, which has no login until you give it one: `npm run accounts -- admin` (asks for an email and a password, not shown). Without it, the app shows the demo.
+2. **Invite someone.** `npm run accounts -- requests` lists who asked; `npm run accounts -- invite --request <id>` (or `invite someone@example.com`) prints a link that works once.
+3. **A forgotten password.** `npm run accounts -- reset someone@example.com` prints a link, good once and for a day, that also logs that person out everywhere.
+
+Logins never expire: they end when the person logs out. Passwords are hashed with scrypt, invite and reset links and login tokens are stored only as hashes, and the login and request forms limit repeated attempts. `npm run accounts -- users` lists the accounts. Set `APP_URL` so the links point at the right address.
 
 ## Deploying
 
