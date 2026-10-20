@@ -74,6 +74,7 @@ export const ES: Record<string, string> = {
   'A Pokémon can be both on the roster and a breeder: it is kept once and shows on both pages. Removing it from one list leaves it in the other.': 'Un Pokémon puede estar en el equipo y ser criador a la vez: se guarda una sola vez y aparece en ambas páginas. Quitarlo de una lista lo deja en la otra.',
   'Column in your file': 'Columna de tu archivo',
   'Column {n}': 'Columna {n}',
+  'Choose the version: {names}': 'Elige la versión: {names}',
   'Coming soon': 'Próximamente',
   'Comma-separated list': 'Lista separada por comas',
   'Could not add that Pokémon. Try again.': 'No se pudo añadir ese Pokémon. Inténtalo de nuevo.',
