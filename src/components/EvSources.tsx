@@ -58,16 +58,17 @@ export function SourceRow({
     <>
       <span className="font-medium">{lang === 'es' ? s.nameEs : s.nameEn}</span>
       <span className="text-muted"> · +{s.amount}</span>
-      {gameId && (
+      {gameId && (result || aiEnabled) && (
         <button
           onClick={result ? () => setOpen(!open) : () => locate()}
-          disabled={!aiEnabled || state.busy}
-          title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
+          disabled={state.busy}
+          title={result ? undefined : t('Researched on the web with AI, then saved for everyone')}
           className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-40"
         >
           {state.busy ? t('Searching…') : result ? (open ? t('Hide') : t('Show')) : t('Where do I find it?')}
         </button>
       )}
+      {gameId && !result && !aiEnabled && <p className="mt-0.5 text-[10px] text-muted">{t('Nobody has found where it lives yet. Turn on AI to look it up.')}</p>}
       {state.error && <p className="text-pending">{state.error}</p>}
       {result && open && (
         <div className="mt-1 rounded bg-surface p-2 text-muted">
@@ -81,13 +82,11 @@ export function SourceRow({
             </p>
           ))}
           {result.notes && <p className="mt-1">{result.notes}</p>}
-          <button
-            onClick={() => locate(true)}
-            disabled={!aiEnabled || state.busy}
-            className="mt-1 text-[10px] underline disabled:opacity-40"
-          >
-            {state.busy ? t('Searching…') : t('Search again')}
-          </button>
+          {aiEnabled && (
+            <button onClick={() => locate(true)} disabled={state.busy} className="mt-1 text-[10px] underline disabled:opacity-40">
+              {state.busy ? t('Searching…') : t('Search again')}
+            </button>
+          )}
         </div>
       )}
     </>

@@ -48,6 +48,7 @@ model Species {
   evolvesTo   Species[] @relation("Evolution")
 
   forms          Form[]
+  locations      PokemonLocation[]
   pokedexSlots   PokedexSlot[]
   pokedexEntries PokedexEntry[]
   roster         RosterPokemon[]  @relation("RosterSpecies")
@@ -226,7 +227,8 @@ model User {
   name      String
   createdAt DateTime @default(now()) @map("created_at")
 
-  profiles GameProfile[]
+  profiles  GameProfile[]
+  locations PokemonLocation[]
 
   @@map("users")
 }
@@ -469,6 +471,32 @@ model ImportBatch {
   roster  RosterPokemon[]
 
   @@map("import_batches")
+}
+
+/// Where to catch a species in a game's map, shared by every user: the first lookup (by anyone with
+/// AI) is saved here and every later one reads it for free. Keyed by version group, so Scarlet and
+/// Violet, which share a map, share the answer.
+model PokemonLocation {
+  id            String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  versionGroup  String   @map("version_group")
+  speciesId     Int      @map("species_id")
+  /// Reserved for a regional form that lives somewhere else than its species; '' for now.
+  variant       String   @default("")
+  /// { en?: LocationResult, es?: LocationResult }. A lookup fills both; older answers may have one.
+  result        Json
+  /// Who found it, and how: provider and model are null for answers brought over from the old cache.
+  provider      String?
+  model         String?
+  promptVersion Int      @map("prompt_version")
+  createdBy     String?  @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  species Species @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@unique([versionGroup, speciesId, variant])
+  @@map("pokemon_locations")
 }
 
 /// An AI result, and its cache: the same kind + inputHash is never paid for twice.

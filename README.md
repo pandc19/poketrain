@@ -83,6 +83,7 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 | `npm run build` | Production build |
 | `npm run db:studio` | Opens Prisma Studio to browse the data |
 | `npm run db:reset` | **Deletes all data** in the database (roster, Pokédex, breeding plans, AI cache, and the Pokémon reference data) but keeps the tables. It does nothing else and runs no migration. Afterwards run `npm run db:seed` and then `npm run sync:pokeapi` |
+| `npm run locations:import-legacy` | One-off: moves the "where do I catch it?" answers saved in the old per-user AI cache into the shared location dictionary. Safe to repeat. Reads `DATABASE_URL` from `.env.local` |
 | `docker exec -it postgres18 psql -U poketrain -d poketrain_dev` | Opens a SQL shell on the database |
 
 ### Common problems
