@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { z } from 'zod';
 import { prisma } from '../db';
-import type { GameConfig } from '../games';
+import { getGame, type GameConfig } from '../games';
+import { findLocations, saveLocation } from '../locations';
+import type { StoredLocation } from '../location-text';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
 import { activeMint, withFixedMoves } from '../audit-locks';
@@ -12,33 +14,49 @@ import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { type AuditAsk, type BuildAuditRaw, LocationSchema, buildAuditSchema } from './schema';
+import { type AuditAsk, type BuildAuditRaw, BilingualLocationSchema, type LocationResult, buildAuditSchema } from './schema';
 import { localizeNames } from './names';
 import { mintInForce } from '../mint';
 import type { AiProvider, ModelTier } from './types';
 
 const PROMPT_VERSION = 20;
 
-const system = (game: GameConfig, lang: Lang) =>
+const SPANISH_RULES =
+  'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
+  'In sentences, name Pokémon, moves, items (TMs, vitamins, berries, Mints), abilities, natures, types, towns, areas and fast-travel points exactly as the Spanish (Spain) version of the game shows them, ' +
+  'as the Spanish WikiDex lists them (for example Roca Afilada, Cinta Elegida, Proteína, Firme, Intimidación), never a translation of your own. ' +
+  'If you are not sure of the Spanish name, write the English one rather than inventing it. ' +
+  'The only exception are fields that hold an identifier the app matches (the move, the item, the nature of a Mint, a Tera type and a Pokémon to look up): those stay in English exactly as the English game spells them.';
+
+/** `both` is for an answer stored in the shared dictionary, which carries an English and a Spanish version. */
+const system = (game: GameConfig, lang: Lang | 'both') =>
   [
     `You are a competitive Pokémon coach helping one player with ${game.name}.`,
     `Only recommend Pokémon, moves, items and mechanics that exist in ${game.name}, including its DLC.`,
     'Be specific and practical. If you are not sure where something is found, say so rather than guessing.',
     'Prefer advice the player can act on without starting over: say what is easy, and never suggest a move the Pokémon cannot learn in this game.',
     lang === 'es'
-      ? 'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
-        'In sentences, name Pokémon, moves, items (TMs, vitamins, berries, Mints), abilities, natures, types, towns, areas and fast-travel points exactly as the Spanish (Spain) version of the game shows them, ' +
-        'as the Spanish WikiDex lists them (for example Roca Afilada, Cinta Elegida, Proteína, Firme, Intimidación), never a translation of your own. ' +
-        'If you are not sure of the Spanish name, write the English one rather than inventing it. ' +
-        'The only exception are fields that hold an identifier the app matches (the move, the item, the nature of a Mint, a Tera type and a Pokémon to look up): those stay in English exactly as the English game spells them.'
-      : 'Write every text field in English.',
+      ? SPANISH_RULES
+      : lang === 'both'
+        ? `Fill in two versions of every text field. The "en" object is written in English. The "es" object is written like this: ${SPANISH_RULES}`
+        : 'Write every text field in English.',
   ].join(' ');
 
-/** Location answers have their own version, so changes to the audit prompt do not throw them away. */
-const LOCATION_PROMPT_VERSION = 12;
+/** Stored with each dictionary entry, to tell which prompt found it. Changing the prompt does not discard saved entries. */
+const LOCATION_PROMPT_VERSION = 13;
+
+/** The version of the prompt whose answers sat in the per-user cache before the shared dictionary. */
+const LEGACY_LOCATION_VERSION = 12;
 
 const hashOf = (model: string, input: unknown, version = PROMPT_VERSION) =>
   createHash('sha256').update(JSON.stringify({ v: version, model, input })).digest('hex');
+
+/**
+ * The key the per-user cache (ai_audits) saved a location answer under, in one language. Only the script
+ * that moves those answers into the shared dictionary needs it.
+ */
+export const legacyLocationHash = (model: string, gameId: string, pokemon: string, lang: Lang) =>
+  hashOf(model, { game: gameId, pokemon, lang }, LEGACY_LOCATION_VERSION);
 
 /**
  * Runs an AI task through the AiAudit cache: the same question (same kind,
@@ -341,59 +359,70 @@ export async function auditBuild(
   );
 }
 
-/** A location already researched for this Pokémon, or null. Never makes a request to the model. */
-export async function savedLocation(provider: AiProvider, game: GameConfig, lang: Lang, pokemon: string) {
-  // Whichever language it was researched in: like the other answers, it stays until it is run again.
-  const other: Lang = lang === 'es' ? 'en' : 'es';
-  for (const l of [lang, other]) {
-    const inputHash = hashOf(provider.modelFor('bulk'), { game: game.id, pokemon, lang: l }, LOCATION_PROMPT_VERSION);
-    const hit = await prisma.aiAudit.findUnique({
-      where: { kind_provider_inputHash: { kind: 'location', provider: provider.name, inputHash } },
-    });
-    if (hit) return hit.result as z.infer<typeof LocationSchema>;
-  }
-  return null;
-}
-
-/** Where to catch a Pokémon. PokéAPI has no encounter data for recent games, so this is researched. */
+/**
+ * Where to catch a Pokémon, from the shared dictionary or else from the model. PokéAPI has no encounter
+ * data for recent games, so a miss is researched on the web, in both languages at once, and saved for
+ * everyone. With `refresh` the dictionary is skipped and the entry replaced.
+ */
 export async function researchLocation(
   provider: AiProvider,
   game: GameConfig,
-  lang: Lang,
-  profileId: string,
+  userId: string,
+  speciesId: number,
   pokemon: string,
   refresh = false
-) {
+): Promise<StoredLocation> {
   if (!refresh) {
-    const saved = await savedLocation(provider, game, lang, pokemon);
+    const saved = (await findLocations(game, [speciesId])).get(speciesId);
     if (saved) return saved;
   }
-  return cached(provider, { kind: 'location', profileId, lang, refresh, version: LOCATION_PROMPT_VERSION }, { game: game.id, pokemon, lang }, {
-    system: system(game, lang),
-    schema: LocationSchema,
+  const names = sharedGameName(game);
+  const raw = await provider.generate({
+    system: system(game, 'both'),
+    schema: BilingualLocationSchema,
     schemaName: 'location',
-    // In Spanish the game names left in English are put in the game's own Spanish.
-    finish: async (r) => ({
-      ...r,
-      locations: await Promise.all(
-        r.locations.map(async (l) => ({
-          ...l,
-          place: await localizeNames(l.place, lang),
-          nearby: l.nearby ? await localizeNames(l.nearby, lang) : l.nearby,
-          details: l.details ? await localizeNames(l.details, lang) : l.details,
-        }))
-      ),
-      notes: r.notes ? await localizeNames(r.notes, lang) : r.notes,
-    }),
     webSearch: true,
     tier: 'bulk',
     prompt:
-      `Where can ${pokemon} be caught in ${game.name}? Be brief: at most two places, best first. ` +
+      `Where can ${pokemon} be caught in ${names}? Be brief: at most two places, best first. ` +
       'For each: place is the area name; nearby is the nearest fast-travel point, town or region to head to; ' +
       'details is at most one short sentence on where in the area or how to get there (DLC area or raid only, if that applies). ' +
       (game.locationNote ? `${game.locationNote} ` : '') +
+      (game.pair
+        ? 'The two versions share one map, and this answer is shared by players of both. Say where it is found in the version that has it; ' +
+          'if only one version has it, still set found to true and say in notes which version. '
+        : '') +
       'Do not explain what you could not confirm: leave it out. ' +
       'If it cannot be caught in the wild, set found to false and say in one sentence how it is obtained. ' +
       'notes stays empty unless one short sentence is essential (for example, it needs the DLC).',
   });
+  // The Spanish version has the game names left in English put in the game's own Spanish.
+  const localize = async (b: LocationResult): Promise<LocationResult> => ({
+    ...b,
+    locations: await Promise.all(
+      b.locations.map(async (l) => ({
+        ...l,
+        place: await localizeNames(l.place, 'es'),
+        nearby: l.nearby ? await localizeNames(l.nearby, 'es') : l.nearby,
+        details: l.details ? await localizeNames(l.details, 'es') : l.details,
+      }))
+    ),
+    notes: b.notes ? await localizeNames(b.notes, 'es') : b.notes,
+  });
+  const result: StoredLocation = { en: raw.en, es: await localize(raw.es) };
+  await saveLocation(game, speciesId, result, {
+    userId,
+    provider: provider.name,
+    model: provider.modelFor('bulk'),
+    promptVersion: LOCATION_PROMPT_VERSION,
+  });
+  return result;
+}
+
+/** "Pokémon Scarlet and Violet" for a pair that shares a map, otherwise the game's own name. */
+function sharedGameName(game: GameConfig): string {
+  const pair = game.pair ? getGame(game.pair) : undefined;
+  if (!pair) return game.name;
+  const [first, second] = [game, pair].sort((a, b) => a.shortName.localeCompare(b.shortName));
+  return `${first.name} and ${second.shortName}`;
 }

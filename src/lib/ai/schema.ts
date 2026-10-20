@@ -114,3 +114,9 @@ export const LocationSchema = z.object({
   notes: z.string().describe('Empty, or one short sentence'),
 });
 export type LocationResult = z.infer<typeof LocationSchema>;
+
+/** One request answers in both languages, so the shared dictionary serves every player. */
+export const BilingualLocationSchema = z.object({
+  en: LocationSchema.describe('Written in English'),
+  es: LocationSchema.describe('Written in Spanish from Spain'),
+});

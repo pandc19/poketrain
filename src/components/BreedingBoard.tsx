@@ -388,7 +388,7 @@ export function BreedingBoard({
         {item.have !== 'ready' && (
           <p className={`mt-1 ${item.have === 'caught' ? 'text-star' : 'text-pending'}`}>{describe(goal, item)}</p>
         )}
-        {canLookUp && (
+        {canLookUp && (result || aiEnabled) && (
           <button
             onClick={() =>
               result
@@ -399,8 +399,8 @@ export function BreedingBoard({
                   })
                 : locate(item.species)
             }
-            disabled={!aiEnabled || location?.busy}
-            title={aiEnabled ? t('Researched on the web with AI') : t('Add an API key to .env.local to enable location lookups')}
+            disabled={location?.busy}
+            title={result ? undefined : t('Researched on the web with AI, then saved for everyone')}
             className="mt-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-ink disabled:opacity-40"
           >
             {location?.busy
@@ -412,6 +412,9 @@ export function BreedingBoard({
                 : t('Where do I catch it?')}
           </button>
         )}
+        {canLookUp && !result && !aiEnabled && (
+          <p className="mt-1 text-[10px] text-muted">{t('Nobody has found where it lives yet. Turn on AI to look it up.')}</p>
+        )}
         {location?.error && <p className="mt-1 text-pending">{location.error}</p>}
         {result && isOpen && (
           <div className="mt-1 rounded bg-surface-2 p-2 text-muted">
@@ -422,13 +425,11 @@ export function BreedingBoard({
               </p>
             ))}
             {result.notes && <p className="mt-1">{result.notes}</p>}
-            <button
-              onClick={() => locate(item.species, true)}
-              disabled={!aiEnabled || location?.busy}
-              className="mt-1 text-[10px] underline disabled:opacity-40"
-            >
-              {location?.busy ? t('Searching…') : t('Search again')}
-            </button>
+            {aiEnabled && (
+              <button onClick={() => locate(item.species, true)} disabled={location?.busy} className="mt-1 text-[10px] underline disabled:opacity-40">
+                {location?.busy ? t('Searching…') : t('Search again')}
+              </button>
+            )}
             <p className="mt-1 flex items-center gap-1.5 text-[10px]">
               <AiBadge /> {t('AI-researched. Check in game before relying on it.')}
             </p>
