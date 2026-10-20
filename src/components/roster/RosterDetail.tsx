@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { AiBadge } from '../AiBadge';
 import { AuditPanel } from '../AuditPanel';
+import { ConfirmDialog } from '../Dialog';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
 import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
@@ -355,6 +356,8 @@ export function RosterDetail({
   };
 
   const [error, setError] = useState<string | null>(null);
+  // A new audit replaces the one the card shows, so it is confirmed when there is one.
+  const [replacing, setReplacing] = useState<'quick' | 'ai' | null>(null);
   const [nickname, setNickname] = useState(p.nickname ?? '');
   const savedEvs = p.evs ? formatEvs(p.evs) : '';
   const [targetEvs, setTargetEvs] = useState(savedEvs);
@@ -980,7 +983,7 @@ export function RosterDetail({
           </button>
         )}
         <button
-          onClick={onQuickAudit}
+          onClick={() => (p.audit ? setReplacing('quick') : onQuickAudit())}
           disabled={auditing}
           title={t('Suggests a nature, EVs, four moves, an item and a Tera type from the game data. Free and instant, no AI.')}
           className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
@@ -990,7 +993,7 @@ export function RosterDetail({
         {/* The AI audit is the same audit, looked at more deeply: only offered where AI is on. */}
         {aiEnabled && (!p.audit || byRules) && (
           <button
-            onClick={() => onAudit(false, false)}
+            onClick={() => (p.audit ? setReplacing('ai') : onAudit(false, false))}
             disabled={auditing}
             className="rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
           >
@@ -1035,6 +1038,27 @@ export function RosterDetail({
           busy={auditing}
         />
       )}
+
+      <ConfirmDialog
+        open={replacing != null}
+        title={t('Replace the current audit?')}
+        confirmLabel={t('Replace')}
+        onConfirm={() => {
+          const next = replacing;
+          setReplacing(null);
+          if (next === 'quick') onQuickAudit();
+          else if (next === 'ai') onAudit(false, false);
+        }}
+        onCancel={() => setReplacing(null)}
+      >
+        <p>
+          {replacing === 'ai'
+            ? t('The quick audit on this card will be replaced by an AI audit, which uses your AI key. Parts you have fixed stay.')
+            : byRules
+              ? t('The quick audit on this card will be made again from the current data. Parts you have fixed stay.')
+              : t('The AI audit on this card will be replaced by a quick audit. Parts you have fixed stay.')}
+        </p>
+      </ConfirmDialog>
 
       <datalist id="detail-moves">
         {options.moves.map((m) => (
