@@ -68,7 +68,7 @@ export function SourceRow({
           {state.busy ? t('Searching…') : result ? (open ? t('Hide') : t('Show')) : t('Where do I find it?')}
         </button>
       )}
-      {gameId && !result && !aiEnabled && <p className="mt-0.5 text-[10px] text-muted">{t('Nobody has found where it lives yet. Turn on AI to look it up.')}</p>}
+      {gameId && !result && !aiEnabled && <p className="mt-0.5 text-[10px] text-muted">{t('Nobody has found where it lives yet. Add your AI key in Settings to look it up.')}</p>}
       {state.error && <p className="text-pending">{state.error}</p>}
       {result && open && (
         <div className="mt-1 rounded bg-surface p-2 text-muted">

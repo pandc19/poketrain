@@ -413,7 +413,7 @@ export function BreedingBoard({
           </button>
         )}
         {canLookUp && !result && !aiEnabled && (
-          <p className="mt-1 text-[10px] text-muted">{t('Nobody has found where it lives yet. Turn on AI to look it up.')}</p>
+          <p className="mt-1 text-[10px] text-muted">{t('Nobody has found where it lives yet. Add your AI key in Settings to look it up.')}</p>
         )}
         {location?.error && <p className="mt-1 text-pending">{location.error}</p>}
         {result && isOpen && (

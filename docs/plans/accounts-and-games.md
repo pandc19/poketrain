@@ -100,6 +100,14 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - A password needs 8 characters at least (`src/lib/auth/rules.ts`); the forms show the same number.
 - The existing user became the admin by migration, and a `Demo` user (no email, no password) was added with a profile per game. Whoever is not logged in is the demo.
 
+### As built in PR 7
+
+- `chooseAiSource`: the user's own key first, then the server's key for an account with `aiEnabled` (the owner), otherwise none. The demo never has AI. `canUseAi` / `getAiProviderFor` in `src/lib/ai/user-provider.ts` are the only way to get a provider; the old env-only `getAiProvider` is gone, so nothing is charged to the server by chance.
+- `/api/ai/*` answer 403 without AI. The roster and breeding pages pass `aiEnabled` per user, and the AI buttons stay hidden without it.
+- Own keys: AES-256-GCM with `AI_KEY_SECRET`, the user's id as authenticated data (a copied blob does not decrypt), the provider and the last four characters kept beside it. A key is checked with the provider's free model-list call before it is saved, never returned to the browser, never logged. A key that cannot be decrypted counts as no key.
+- `/settings`: the account, and the AI key form (provider, key, replace, remove).
+- Still for PR 8: the hints on what each AI action does, and the demo's "AI is not available in the demo" label.
+
 ## Admin config page (`/admin`)
 
 1. Demo data: "Copy my data to demo", the time of the last copy, a confirmation (it wipes visitors' edits).

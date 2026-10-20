@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
-import { AiError, NO_AI_MESSAGE, getAiProvider } from '@/lib/ai';
+import { AiError, NO_AI_MESSAGE } from '@/lib/ai';
+import { getAiProviderFor } from '@/lib/ai/user-provider';
 import { researchLocation } from '@/lib/ai/tasks';
-import { getUserId } from '@/lib/current-user';
+import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 import { getLang } from '@/lib/i18n';
@@ -29,10 +30,11 @@ export async function POST(request: Request) {
   const species = await prisma.species.findUnique({ where: { id: parsed.data.speciesId }, select: { nameEn: true } });
   if (!game || !profileId || !species) return apiError('Not found', 404);
 
-  const provider = getAiProvider();
-  if (!provider) return apiError(NO_AI_MESSAGE, 503);
+  const user = await getUser();
+  const provider = await getAiProviderFor(user);
+  if (!provider) return apiError(NO_AI_MESSAGE, 403);
   try {
-    const stored = await researchLocation(provider, game, await getUserId(), parsed.data.speciesId, species.nameEn, parsed.data.refresh);
+    const stored = await researchLocation(provider, game, user.id, parsed.data.speciesId, species.nameEn, parsed.data.refresh);
     return Response.json({ result: pickLocation(stored, await getLang()) });
   } catch (error) {
     if (error instanceof AiError) return apiError(error.message, 502, error.vars);

@@ -11,14 +11,17 @@ export class ClaudeProvider implements AiProvider {
   readonly name = 'claude' as const;
   private readonly models = claudeModels();
   private client: Anthropic;
+  private readonly own: boolean;
 
-  constructor() {
+  /** With a key, it is a player's own (and the server's workspace setting does not apply); without, the server's. */
+  constructor(apiKey?: string) {
+    this.own = apiKey !== undefined;
     // A key that isn't scoped to a workspace is rejected unless the request
     // names one. Omitted when unset, so scoped keys keep working as before.
     const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
-    this.client = new Anthropic(
-      workspaceId ? { defaultHeaders: { 'anthropic-workspace-id': workspaceId } } : undefined
-    );
+    this.client = apiKey
+      ? new Anthropic({ apiKey })
+      : new Anthropic(workspaceId ? { defaultHeaders: { 'anthropic-workspace-id': workspaceId } } : undefined);
   }
 
   modelFor(tier: ModelTier) {
@@ -50,7 +53,10 @@ export class ClaudeProvider implements AiProvider {
         return response.parsed_output as T;
       }
     } catch (error) {
-      if (error instanceof Anthropic.AuthenticationError) throw new AiError('ANTHROPIC_API_KEY was rejected. Check .env.local.');
+      if (error instanceof Anthropic.AuthenticationError) {
+        if (this.own) throw new AiError('Your Anthropic API key was rejected. Check it in Settings.');
+        throw new AiError('ANTHROPIC_API_KEY was rejected. Check .env.local.');
+      }
       if (error instanceof Anthropic.RateLimitError) throw new AiError('Claude rate limit reached. Try again later.');
       if (error instanceof Anthropic.APIError) {
         // The SDK's message is "400 {json}"; the readable part is nested inside.

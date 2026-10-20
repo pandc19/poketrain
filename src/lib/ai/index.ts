@@ -15,14 +15,16 @@ export function configuredProviderName(): 'openai' | 'claude' {
   return provider;
 }
 
+/** Whether the server has a key of its own, for the provider picked by `AI_PROVIDER`. */
+export function serverAiKeyConfigured(): boolean {
+  return Boolean(configuredProviderName() === 'openai' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY);
+}
+
 /**
- * The provider picked by `AI_PROVIDER`, or `null` when that provider has no
- * API key. `null` is "no-AI mode", not an error: the app works fully and the
- * AI buttons explain how to turn them on.
+ * The server's own provider (the one picked by `AI_PROVIDER`), or `null` when it has no API key. Only for
+ * accounts the admin gave AI to: who may use it, and which key, is decided in user-provider.ts.
  */
-export function getAiProvider(): AiProvider | null {
-  if (configuredProviderName() === 'openai') {
-    return process.env.OPENAI_API_KEY ? new OpenAiProvider() : null;
-  }
-  return process.env.ANTHROPIC_API_KEY ? new ClaudeProvider() : null;
+export function getServerAiProvider(): AiProvider | null {
+  if (!serverAiKeyConfigured()) return null;
+  return configuredProviderName() === 'openai' ? new OpenAiProvider() : new ClaudeProvider();
 }

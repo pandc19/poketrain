@@ -57,6 +57,7 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 | Variable | Notes |
 |---|---|
 | `DATABASE_URL` | `postgresql://poketrain_app:<password>@<postgres-internal-host>:5432/poketrain`. No `sslmode` and no `schema` parameter. Percent-encode special characters in the password |
+| `AI_KEY_SECRET` | secret. 32 random bytes in base64 (`openssl rand -base64 32`). Encrypts the keys people save in Settings. Without it Settings cannot save keys. If it changes, saved keys become unreadable and people add them again, so keep it |
 | `AI_PROVIDER` | `claude` or `openai` |
 | `ANTHROPIC_API_KEY` | secret |
 | `ANTHROPIC_WORKSPACE_ID` | |

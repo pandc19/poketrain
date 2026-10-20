@@ -102,6 +102,8 @@ Anyone who is not logged in uses the shared **demo** (its own copy of the data, 
 2. **Invite someone.** `npm run accounts -- requests` lists who asked; `npm run accounts -- invite --request <id>` (or `invite someone@example.com`) prints a link that works once.
 3. **A forgotten password.** `npm run accounts -- reset someone@example.com` prints a link, good once and for a day, that also logs that person out everywhere.
 
+**AI is the user's own.** Nobody gets AI by default: the demo and new accounts have none, and the AI buttons stay hidden. A user adds their own Anthropic or OpenAI key in **Settings**; it is checked with the provider (a free request), stored encrypted with `AI_KEY_SECRET`, and used only for their requests, so the provider charges them and Poké Train charges nothing. The owner's account (and any the admin gives AI to) uses the server's key from `.env.local`. Without `AI_KEY_SECRET` the app runs, but Settings cannot save keys. Everything that is not the build audit or the location lookup works without AI, including the quick audit.
+
 Logins never expire: they end when the person logs out. Passwords are hashed with scrypt, invite and reset links and login tokens are stored only as hashes, and the login and request forms limit repeated attempts. `npm run accounts -- users` lists the accounts. Set `APP_URL` so the links point at the right address.
 
 ## Deploying
