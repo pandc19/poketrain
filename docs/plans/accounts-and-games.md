@@ -1,0 +1,141 @@
+# Plan: accounts, demo, the app without AI, more games
+
+Status: in progress. Every PR below targets the integration branch `feat/accounts-and-games`, which merges to `main` (and deploys) only once the whole plan is done. Each PR is tested by hand before it merges into the integration branch.
+
+---
+
+## Goals
+
+- The app stays open as a **demo** anyone can use without logging in, with its own copy of the data.
+- **Accounts** with email and password, **invite-only**. Sessions do not expire.
+- Two **roles**: `ADMIN` (the owner) and `USER`. The admin also has a config page.
+- The **whole app works without AI**. AI controls are shown only to a user who can use AI: the admin, or a user who has added their own API key. There is no billing (see [Why no billing](#why-no-billing)).
+- More **games**: Scarlet now, then Sword/Shield, Brilliant Diamond/Shining Pearl and Legends: Z-A.
+
+## Pages and navigation
+
+The URLs stay the same. Who is looking decides whose data is shown.
+
+| Who | `/` | `/<game>/...` | `/admin` |
+|---|---|---|---|
+| Logged out | Landing page | **Demo data**, with a banner: "You're viewing the demo · Log in · Home" | → `/login` |
+| User | → their first game | their data | 404 |
+| Admin | → their first game | their data | config page |
+
+New pages: `/login`, `/request-invite` (name, email, optional "what games do you play"), `/register?invite=<code>` (only with a valid, unused invite), `/settings` (own API key). All of them link back to the landing page. The header gains Log out, Admin (admin only), and a game selector that lists only the account's games, with "Add game" at the end.
+
+### Landing page
+
+Built on the app's device and cartridge look, in English and Spanish.
+
+> **Poké Train**
+> A side project from someone who loves Pokémon games, built to keep a playthrough organised: what you've caught, who you're training, what to breed next, and what's still left to beat. All in one place, instead of a dozen spreadsheets and browser tabs.
+>
+> [Try the demo] [Log in] [Request an invite]
+
+Then: what it does (Pokédex, roster and training, breeding planner, battle prep, and what the AI adds); the games available now, one cartridge card each in its own colours, pairs side by side; coming next (Legends: Z-A, Brilliant Diamond / Shining Pearl, Sword / Shield); footer "A free-time fan project. Not affiliated with Nintendo, Game Freak or The Pokémon Company."
+
+## Accounts, roles, invites
+
+Schema:
+
+- `users`: `email` (unique), `passwordHash`, `role` (`ADMIN | USER`, default `USER`), `aiEnabled` (default false), the user's own encrypted AI key and provider.
+- `sessions`: `id`, `userId`, `tokenHash`, `createdAt`, `lastSeenAt`.
+- `invite_requests`: `name`, `email`, `message`, `status` (`PENDING | INVITED | DECLINED`), `createdAt`.
+- `invites`: `codeHash`, `email?`, `createdBy`, `createdAt`, `usedAt`, `usedBy`.
+- `password_resets`: `tokenHash`, `userId`, `expiresAt` (about 24 h), `usedAt`.
+
+- Passwords: `node:crypto` scrypt, no new dependency.
+- Sessions never expire: the row lives until logout. The cookie (`httpOnly`, `Secure`, `SameSite=Lax`) is re-issued every ~30 days, since browsers cap a cookie at 400 days.
+- No email provider: the admin approves a request, the app shows a single-use invite link, the admin sends it. Password resets work the same way.
+- `/request-invite` and `/login`: honeypot field and a per-IP rate limit.
+- The existing user (today's `LOCAL_USER_ID`) becomes the `ADMIN`, with AI on.
+- `getUser()` returns the session's user, or the demo user when nobody is logged in. `requireAdmin()` guards `/admin` and its actions. Every check runs on the server.
+
+## AI
+
+What it does today:
+
+1. **Build audit** (Roster): held item, four legal moves, EV plan, nature or Mint, Tera type, each with a reason; locked parts are kept. Audit (bulk model), Deep audit (stronger model), Re-run.
+2. **Where to catch a Pokémon** (web search): Roster EV sources, Breeding, EV sources list.
+
+Everything else (legality, EVs from stats, IV ratings, breeding plans, battle counters, exclusives, import, Spanish names) is game data and works without a key.
+
+Rules:
+
+- `canUseAi(user)`: the admin with AI on and a server key, or a user with their own key. The `/api/ai/*` routes return 403 otherwise; hiding a button is never the only guard.
+- Without AI the controls are **hidden**, not disabled. In their place, a short line pointing to `/settings`.
+- The demo shows saved AI answers with a label: "AI isn't available in the demo. With your own API key you can run it."
+- Every AI action has a `HelpTip` saying what it does, that it uses the user's key, and where the answer is saved.
+- Own keys: encrypted at rest with a key from an env var, never sent back to the browser, never logged.
+
+### Shared location dictionary
+
+Table `pokemon_locations`, shared by every user: `versionGroup`, `speciesId`, `variant` (`''` or a region), `result` (English and Spanish in one answer), `provider`, `model`, `promptVersion`, `createdBy`, timestamps. Unique on `(versionGroup, speciesId, variant)`.
+
+- Keyed by version group: Scarlet and Violet share a map. Version exclusivity comes from our own exclusives data and shows as a badge.
+- Lookup: database first, for anyone. Not there and the user can use AI: "Find location", saved for everyone. Not there and no AI: "We don't know where to find this one yet. Add your own API key to look it up." "Look again" (AI only) replaces the entry; the admin page can delete one.
+- The answers already saved under `ai_audits` (kind `location`) are moved by a one-off script that rebuilds their hashes per species and language.
+
+### Quick audit (no AI)
+
+Free, instant, for everyone including the demo. Same result shape as the AI audit, so the panel shows it unchanged; reasons come from templates in both languages.
+
+- Role: physical or special from base Attack vs Sp. Atk (and its moves, EVs, nature); fast or bulky from base Speed.
+- Nature: raise the attacking stat (or Speed when fast), lower the unused attacking one. Mint when the nature's effect differs.
+- EV plan: fast: 252 attack stat / 252 Speed / 4 HP; slow: 252 HP / 252 attack stat / 4 Defense.
+- Moves: legal damaging moves of its category scored by power × accuracy × STAB; best STAB of each own type, then coverage from the type chart; moves it knows win ties. A short hand list of setup moves to include and moves with drawbacks to skip.
+- Held item: rules of thumb (Focus Sash, Choice Band/Specs, Life Orb, Leftovers), only items the game has.
+- Tera type: its strongest move type.
+- Locks are kept. Saved with `provider: 'rules'` and a rules version.
+- Says plainly: "Rule-based suggestion. An AI audit looks deeper."
+
+## Admin config page (`/admin`)
+
+1. Demo data: "Copy my data to demo", the time of the last copy, a confirmation (it wipes visitors' edits).
+2. AI: whether a server key and provider are set; AI on/off per user.
+3. Invite requests: pending list, Invite (makes the link) or Decline; a link can also be made without a request.
+4. Users: list, role, AI on/off, "Create a password reset link".
+5. Location dictionary: list and delete entries.
+
+## Demo data
+
+- The demo is a user with role `USER` and AI off. Visitors can edit it; every copy wipes their edits.
+- `copyUserData(admin → demo)`, in one transaction: delete the demo's profiles (cascade), then copy every admin profile with new ids: Pokédex entries, roster with moves and roles, team slots, breeding goals, battle opponents (remapping `bestRosterId` and ids inside `frozen`), saved AI answers.
+- Saved AI answers are unique on `(kind, provider, inputHash)` across the whole database; the copy needs `profile_id` in that key (a migration).
+- New games come along on the next copy.
+
+## Games
+
+- Pokédexes are read from the game config's slugs instead of `pokedexes.game_id` (dropped), so paired games can share them.
+- **Scarlet**: like Violet, exclusives reversed (`scarletVioletExclusives('scarlet')`), red theme, `ancient` motif. Same version group, no new sync.
+- **Add game** dialog: games by generation; pairs offer one version or both (two separate saves). New accounts start here. The seed stops creating a profile per game for everyone.
+- Next, one PR each: config, `features`, exclusives (hand-kept, from Bulbapedia), catalog, theme, `sync:pokeapi`.
+
+| Game | Pair | Care |
+|---|---|---|
+| Sword / Shield | yes | Galar, Isle of Armor, Crown Tundra dexes; Max Raids, no Tera; Dynamax |
+| Brilliant Diamond / Shining Pearl | yes | Sinnoh plus National Dex; no raids, no Tera |
+| Legends: Z-A | no | own battle and training system, `evTarget: true`, no breeding, Megas; check PokéAPI coverage first |
+
+## Why no billing
+
+The app is built on Pokémon trademarks and game assets (the name, the sprites, game text). A free fan tool sits in the tolerated grey area; charging makes it a commercial product on someone else's IP, which is what draws takedowns and gets payment accounts closed. Users who want AI bring their own key instead. If billing ever comes back, `canUseAi` is where it plugs in.
+
+## PRs
+
+All into `feat/accounts-and-games`; tested by hand before each merge.
+
+1. `refactor: resolve the current user through one helper`
+2. `refactor: link pokedexes to games through the game config`
+3. `feat: add Pokémon Scarlet`
+4. `feat: keep a shared dictionary of where to catch each Pokémon`
+5. `feat: add a rule-based audit that needs no AI`
+6. `feat: add accounts with roles, invites and long-lived sessions`
+7. `feat: let users bring their own AI key`
+8. `feat: explain what each AI action does`
+9. `feat: add the admin config page`
+10. `feat: copy the admin's data to the demo`
+11. `feat: add a landing page and the demo banner`
+12. `feat: let each account choose its games`
+13. One PR per new game: Sword/Shield, BD/SP, Legends: Z-A.
