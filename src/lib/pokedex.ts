@@ -1,5 +1,5 @@
 import { prisma } from './db';
-import { LOCAL_USER_ID } from './constants';
+import { getUserId } from './current-user';
 import type { Prisma } from '@prisma/client';
 import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, getGame } from './games';
 import { rosterProgress } from './roster-status';
@@ -101,6 +101,7 @@ export async function loadDex(
   // The extra tab lists forms no Pokédex of the game numbers; each one is shown as its regional form.
   const isExtra = pokedexSlug === EXTRA_DEX_SLUG && Boolean(opts.gameId && getGame(opts.gameId)?.extraForms);
   const dexSlots = isExtra ? await gameDexSlots(opts.gameId!) : [];
+  const userId = await getUserId();
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
     isExtra
       ? Promise.all([
@@ -156,7 +157,7 @@ export async function loadDex(
           select: { entryNumber: true, species: { select: speciesSelect } },
         }),
     prisma.pokedexEntry.findMany({
-      where: { profile: { userId: LOCAL_USER_ID } },
+      where: { profile: { userId } },
       select: {
         speciesId: true,
         profileId: true,
@@ -168,7 +169,7 @@ export async function loadDex(
       },
     }),
     prisma.rosterPokemon.findMany({
-      where: profileId ? { profileId } : { profile: { userId: LOCAL_USER_ID } },
+      where: profileId ? { profileId } : { profile: { userId } },
       include: { moves: true, roles: true },
     }),
     // A game's National Dex lists every species; this marks which ones the game has.

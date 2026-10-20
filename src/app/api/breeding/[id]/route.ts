@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { IV_STATS } from '@/lib/breeding/engine';
 import { loadGoals } from '@/lib/breeding/goals';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUserId } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
 
@@ -18,7 +18,7 @@ const Body = z.object({
 async function findGoal(id: string) {
   if (!z.uuid().safeParse(id).success) return null;
   return prisma.breedingGoal.findFirst({
-    where: { id, profile: { userId: LOCAL_USER_ID } },
+    where: { id, profile: { userId: await getUserId() } },
     include: { profile: { select: { gameId: true } } },
   });
 }

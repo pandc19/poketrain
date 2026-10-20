@@ -1,5 +1,5 @@
 import { prisma } from '../db';
-import { LOCAL_USER_ID } from '../constants';
+import { getUserId } from '../current-user';
 import type { GameConfig } from '../games';
 import { IV_STATS, type BreedingData, type IvKnowledge, type LearnWay, type Owned, type OwnedPokemon } from './engine';
 
@@ -44,7 +44,7 @@ export async function loadBreedingData(game: GameConfig, moveIds: number[]): Pro
 export async function loadOwned(profileId: string): Promise<Owned> {
   const [roster, entries] = await Promise.all([
     prisma.rosterPokemon.findMany({
-      where: { profileId, owned: true, breedingOff: false, profile: { userId: LOCAL_USER_ID } },
+      where: { profileId, owned: true, breedingOff: false, profile: { userId: await getUserId() } },
       select: {
         id: true,
         speciesId: true,

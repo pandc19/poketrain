@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { AiError, NO_AI_MESSAGE, getAiProvider } from '@/lib/ai';
 import { auditBuild } from '@/lib/ai/tasks';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUserId } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { recomputeEvsFromStats } from '@/lib/ev-sync';
 import { getGame } from '@/lib/games';
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   if (!provider) return apiError(NO_AI_MESSAGE, 503);
 
   const row = await prisma.rosterPokemon.findFirst({
-    where: { id: parsed.data.rosterPokemonId, profile: { userId: LOCAL_USER_ID } },
+    where: { id: parsed.data.rosterPokemonId, profile: { userId: await getUserId() } },
     select: { profileId: true, currentEvsEstimated: true, profile: { select: { gameId: true } } },
   });
   const game = row && getGame(row.profile.gameId);
