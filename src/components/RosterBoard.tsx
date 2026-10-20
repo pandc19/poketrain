@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
@@ -547,13 +546,8 @@ export function RosterBoard({
     return (
       <div className="rounded-xl border border-dashed border-line px-6 py-16 text-center">
         <p className="text-lg font-semibold">{t('Your roster is empty')}</p>
-        <p className="mt-1 text-sm text-muted">{t('Import your training spreadsheet, or add a Pokémon by name.')}</p>
-        <div className="mt-5 flex flex-wrap justify-center gap-3">
-          <Link href={`/${gameId}/import`} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg">
-            {t('Import a spreadsheet')}
-          </Link>
-          {addBox}
-        </div>
+        <p className="mt-1 text-sm text-muted">{t('Add a Pokémon by name to start.')}</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-3">{addBox}</div>
         {error && <p className="mt-4 text-sm text-pending">{error}</p>}
         {dialogs}
       </div>
