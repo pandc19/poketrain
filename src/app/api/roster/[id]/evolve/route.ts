@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUserId } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { variantOfSlug } from '@/lib/dex-variant';
 import { rosterGenderToPokedex } from '@/lib/gender-sync';
@@ -14,7 +14,7 @@ const named = { id: true, nameEn: true, nameEs: true } as const;
 async function findBreeder(rosterId: string) {
   if (!z.uuid().safeParse(rosterId).success) return null;
   return prisma.rosterPokemon.findFirst({
-    where: { id: rosterId, profile: { userId: LOCAL_USER_ID } },
+    where: { id: rosterId, profile: { userId: await getUserId() } },
     include: {
       profile: { select: { gameId: true } },
       form: { select: { slug: true } },

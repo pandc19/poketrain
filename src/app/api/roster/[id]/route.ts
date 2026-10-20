@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { apiError } from '@/lib/api-error';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUserId } from '@/lib/current-user';
 import { recomputeEvsFromStats, syncEvStatus } from '@/lib/ev-sync';
 import { rosterGenderToPokedex } from '@/lib/gender-sync';
 import { getGame } from '@/lib/games';
@@ -89,7 +89,7 @@ const Body = z.object({
 async function findOwned(rosterId: string) {
   if (!z.uuid().safeParse(rosterId).success) return null;
   return prisma.rosterPokemon.findFirst({
-    where: { id: rosterId, profile: { userId: LOCAL_USER_ID } },
+    where: { id: rosterId, profile: { userId: await getUserId() } },
     include: { moves: true, profile: { select: { gameId: true } }, form: { select: { slug: true } } },
   });
 }

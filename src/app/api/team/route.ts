@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUserId } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { findProfileId } from '@/lib/profile';
 import { TRAINING_STATS, loadTeam } from '@/lib/team';
@@ -38,7 +38,7 @@ export async function PUT(request: Request) {
 
   if (rosterPokemonId) {
     const mine = await prisma.rosterPokemon.findFirst({
-      where: { id: rosterPokemonId, profileId, profile: { userId: LOCAL_USER_ID } },
+      where: { id: rosterPokemonId, profileId, profile: { userId: await getUserId() } },
       select: { id: true },
     });
     if (!mine) return apiError('Not found', 404);

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { checkOpponent, opponentError, UpdateBody } from '@/lib/battle/input';
 import { loadOpponents } from '@/lib/battle/load';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUserId } from '@/lib/current-user';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getGame } from '@/lib/games';
@@ -10,7 +10,7 @@ import { getGame } from '@/lib/games';
 async function findOpponent(id: string) {
   if (!z.uuid().safeParse(id).success) return null;
   return prisma.battleOpponent.findFirst({
-    where: { id, profile: { userId: LOCAL_USER_ID } },
+    where: { id, profile: { userId: await getUserId() } },
     include: { profile: { select: { gameId: true } } },
   });
 }
