@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AiKeyForm } from '@/components/auth/AiKeyForm';
+import { NameForm } from '@/components/auth/NameForm';
 import { removeAiSettings } from '@/app/settings/actions';
 import { DEFAULT_MODELS, type ProviderName } from '@/lib/ai/models';
 import { getUser } from '@/lib/current-user';
@@ -25,12 +26,12 @@ export default async function SettingsPage() {
 
       <section className="rounded-xl border border-line bg-surface p-5">
         <h2 className="section-title">{t('Account')}</h2>
-        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-          <dt className="text-muted">{t('Name')}</dt>
-          <dd>{user.name}</dd>
-          <dt className="text-muted">{t('Email')}</dt>
-          <dd>{user.email}</dd>
-        </dl>
+        <p className="mt-3 text-sm">
+          <span className="text-muted">{t('Email')}</span> <span className="ml-2 break-all">{user.email}</span>
+        </p>
+        <div className="mt-4">
+          <NameForm current={user.name} />
+        </div>
       </section>
 
       <section className="rounded-xl border border-line bg-surface p-5">
