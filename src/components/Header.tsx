@@ -27,11 +27,16 @@ type GameLink = {
 // Planned modules, shown as empty cartridge slots.
 const COMING_SOON = ['Legends: Z-A'];
 
+// Pages that are not about a game: the landing page and the account pages. They get a plainer header, without
+// the games and the sections, which would only lead a visitor into the app from a page about something else.
+const PLAIN_PATHS = ['/login', '/register', '/request-invite', '/reset-password'];
+
 type HeaderUser = { name: string; admin: boolean; demo: boolean };
 
 export function Header({ games, user }: { games: GameLink[]; user: HeaderUser }) {
   const { t, lang } = useT();
   const pathname = usePathname();
+  const plain = pathname === '/' || PLAIN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const params = useParams<{ game?: string }>();
   const [pending, startTransition] = useTransition();
   const current = games.find((g) => g.id === params.game) ?? games[0];
@@ -91,7 +96,7 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
     <style>{`:root{--shell:${current.theme.from};--shell-dark:${current.theme.to};--screen-hue:${current.theme.screenHue};--accent-dark:${current.theme.accent};--accent-light:${current.theme.lightAccent}}`}</style>
     <header className="dex-shell relative text-white">
       {/* Clipped on its own, so the cartridge menu can open past the shell. */}
-      {current.theme.motif && (
+      {!plain && current.theme.motif && (
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <ShellMotif motif={current.theme.motif} />
         </div>
@@ -111,6 +116,7 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
           </span>
         </Link>
 
+        {!plain && (
         <div className="flex items-center gap-2" aria-label={t('Game')}>
           {slots.map((slot) => {
             if (slot.length === 1) {
@@ -186,6 +192,7 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
             </span>
           ))}
         </div>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           {user.demo ? (
@@ -227,6 +234,9 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
       </div>
 
     </header>
+    {user.demo && !plain && <DemoBanner />}
+    {!plain && (
+      <>
     {/* The sections stay at the top while the page scrolls; the logo, the games and the language scroll away. */}
     <div className="sticky top-0 z-40 border-b border-line bg-surface/95 backdrop-blur" style={{ height: 'var(--nav-h)' }}>
       <div className="mx-auto flex h-full max-w-7xl items-stretch gap-2 px-4">
@@ -293,6 +303,8 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
       </div>
     </div>
     {catalog.length > 0 && <CatalogButton sections={catalog} />}
+      </>
+    )}
     </>
   );
 }
@@ -334,5 +346,28 @@ function Cartridge({ game, active, more = false }: { game: GameLink; active: boo
         </span>
       )}
     </motion.span>
+  );
+}
+
+/** Said to anyone who is not logged in, on every page of the app: this is the demo, and the way to something of their own. */
+function DemoBanner() {
+  const { t } = useT();
+  return (
+    <div className="border-b border-line bg-star/10 text-sm">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-2">
+        <p className="min-w-0 flex-1 basis-64 text-ink">{t('You are viewing the demo. Anyone can edit it, and it is reset from time to time.')}</p>
+        <span className="flex flex-wrap gap-x-4 gap-y-1 font-medium">
+          <Link href="/login" className="underline underline-offset-4 hover:text-game">
+            {t('Log in')}
+          </Link>
+          <Link href="/request-invite" className="underline underline-offset-4 hover:text-game">
+            {t('Request an invite')}
+          </Link>
+          <Link href="/" className="underline underline-offset-4 hover:text-game">
+            {t('About PokéTrain')}
+          </Link>
+        </span>
+      </div>
+    </div>
   );
 }

@@ -87,6 +87,8 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 
 ## Accounts
 
+Anyone who is not logged in lands on a front page (what PokéTrain is, the games it covers, a way to log in or ask for an invite) and can open the shared **demo** from it. Every page of the demo carries a banner that says so, with the way to log in. A logged-in user goes straight to their game. The demo is a copy of the owner's data (see below).
+
 Anyone who is not logged in uses the shared **demo** (its own copy of the data, which visitors can edit). Accounts are **by invitation**: people ask on `/request-invite`, and the owner sends them a one-time link. There is no email service, so the owner copies each link and sends it by hand.
 
 1. **Log in as the owner.** Your data belongs to the owner account, which has no login until you give it one: `npm run accounts -- admin` (asks for an email and a password, not shown). Without it, the app shows the demo.

@@ -109,6 +109,13 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
 - The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up.
 
+### As built in PR 11
+
+- `/` is the front door for anyone not logged in; a logged-in user is sent straight to their first game. The hero is a Pokédex device with a cartridge for each game: **picking one re-tints the whole page** the way the app does inside a game (shell, screen and accent from the game's colours, set on the page's root and taken off again on leaving), and its screen shows that game's Pokédexes, what it covers and, for a pair, which Pokémon only one version has. All of it is read from the game config, so a game added there appears by itself (`src/lib/landing.ts`). The cartridges are radio buttons, so the arrow keys and a screen reader work.
+- Below it: what the app does (Pokédex, roster and training, breeding, battles, the quick audit), that the AI is optional and the user's own, the games coming next, and the not-affiliated notice. Plain text blocks, no card kit; the page is in both languages.
+- The landing and the account pages (login, register, request an invite, reset) get a plainer header without the games and the sections.
+- Every page of the demo carries a banner for visitors ("You are viewing the demo…", with Log in, Request an invite and About PokéTrain); logged-in users never see it.
+
 ### As built in PR 10
 
 - `copyUserData(from, to)` (`src/lib/demo-copy.ts`) empties the target's saves and copies the source's saves, Pokédex, roster (with moves and roles), team slots, breeding plans, battle opponents and saved AI answers, in one transaction: all or nothing. The source is only read, and copying a user onto itself is refused.
