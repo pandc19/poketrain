@@ -95,7 +95,7 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - Sessions are database rows with no expiry; the cookie (`HttpOnly`, `SameSite=lax`, `Secure` in production) lasts the 400 days a browser allows, and `src/proxy.ts` re-issues it, same value, once it is a month old, without touching the database.
 - Passwords: scrypt, the cost kept in the hash. Invite, reset and login tokens: 256 random bits, stored only as a SHA-256 hash.
 - The login, request and register forms are server actions that return short error codes (never text), so every message goes through `t()`. Limits are in memory: failed logins per address and per email, requests per address, and a honeypot on the request form.
-- A new account has a profile for every game until accounts choose their games (PR 12).
+- A new account has no games: it chooses the ones it plays on its first visit (PR 12).
 - Until the admin page (PR 9), the owner used `npm run accounts`. PR 9 moved invites, requests, users and password links into the page and dropped those commands; `admin` (the owner's first login) and `reset` stay as a recovery tool, since they are what is needed when nobody can log in, which the page cannot help with.
 - A password needs 8 characters at least (`src/lib/auth/rules.ts`); the forms show the same number.
 - The existing user became the admin by migration, and a `Demo` user (no email, no password) was added with a profile per game. Whoever is not logged in is the demo.
@@ -108,6 +108,15 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - A key is AES-256-GCM encrypted with `ENCRYPTION_SECRET`, with the user's id as authenticated data (a copied blob does not decrypt); the provider and the last four characters are kept beside it. On save the key, the workspace and the model are checked with the provider's free calls (list models, retrieve the model), never returned to the browser, never logged. A key that cannot be decrypted counts as no key. With the key left empty only the other settings change.
 - `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
 - The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up.
+
+### As built in PR 12
+
+- An account has a save (a profile, named "Main save") for each game it has chosen, and only those. A new account has none and is sent to **Add game** (`/games/add`) on its first visit; anyone logged in can add more later, from the header ("+ Add game", and the entry at the end of the game menu).
+- The Add game page shows each game, or pair of versions, as one card with a cartridge to tick for each version, so a pair can be added as one version or both. A game the account already has is marked and left alone: adding never replaces or resets anything. Scarlet and Violet are two separate saves, as in the games.
+- The header lists only the account's games. Opening a game the account has not added is not an error: it goes to Add game with that game already ticked; a visitor, whose demo lacks it, goes to the front page. The API answers 404 for a game the account does not have.
+- `/` goes to the account's first game, or to Add game when it has none. The landing page's demo links only offer the games the demo has (the demo is a copy of the owner's saves, so it has the owner's games).
+- The seed still gives the owner and the demo every game, so a new development database works at once.
+- Not built: removing a game from an account (it would delete its data, so it needs its own, careful design).
 
 ### As built in PR 11
 

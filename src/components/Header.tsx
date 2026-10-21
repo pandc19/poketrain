@@ -29,17 +29,29 @@ const COMING_SOON = ['Legends: Z-A'];
 
 // Pages that are not about a game: the landing page and the account pages. They get a plainer header, without
 // the games and the sections, which would only lead a visitor into the app from a page about something else.
-const PLAIN_PATHS = ['/login', '/register', '/request-invite', '/reset-password', '/suggest'];
+const PLAIN_PATHS = ['/login', '/register', '/request-invite', '/reset-password', '/suggest', '/games'];
+
+// What the shell looks like when an account has no game yet: the classic red Pokédex (the colours of :root).
+const NO_GAME: GameLink = {
+  id: '',
+  shortName: '',
+  theme: { from: '#e3350d', to: '#a8240a', accent: '#ffcb05', lightAccent: '#a87800', screenHue: 265 },
+  breeding: false,
+  exclusives: false,
+  catalog: [],
+};
 
 type HeaderUser = { name: string; admin: boolean; demo: boolean };
 
-export function Header({ games, user }: { games: GameLink[]; user: HeaderUser }) {
+/** `games` are the ones this account has; `canAddGames` is true for anyone logged in, who can add more. */
+export function Header({ games, user, canAddGames }: { games: GameLink[]; user: HeaderUser; canAddGames: boolean }) {
   const { t, lang } = useT();
   const pathname = usePathname();
-  const plain = pathname === '/' || PLAIN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  // With no game there is nothing to show in a game's header: only the logo and the way to add one.
+  const plain = games.length === 0 || pathname === '/' || PLAIN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const params = useParams<{ game?: string }>();
   const [pending, startTransition] = useTransition();
-  const current = games.find((g) => g.id === params.game) ?? games[0];
+  const current = games.find((g) => g.id === params.game) ?? games[0] ?? NO_GAME;
   const [gamesOpen, setGamesOpen] = useState(false);
   // Paired versions (Scarlet and Violet) share one cartridge slot in the shell; this one is open.
   const [slotOpen, setSlotOpen] = useState<string | null>(null);
@@ -191,10 +203,23 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
               {name}
             </span>
           ))}
+          {canAddGames && (
+            <Link
+              href="/games/add"
+              className="rounded-t-md rounded-b-sm bg-white/20 px-3 pb-1.5 pt-2.5 text-xs font-semibold text-white shadow-[0_2px_0_rgb(0_0_0/0.3)] hover:bg-white/30"
+            >
+              + {t('Add game')}
+            </Link>
+          )}
         </div>
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          {canAddGames && games.length === 0 && !pathname.startsWith('/games') && (
+            <Link href="/games/add" className="rounded-md bg-white px-3 py-1.5 font-display text-xs font-semibold text-shell-dark hover:bg-white/90">
+              {t('Add a game')}
+            </Link>
+          )}
           {user.demo ? (
             <Link href="/login" className="rounded-md bg-black/20 px-3 py-1.5 font-display text-xs font-semibold text-white hover:bg-black/30">
               {t('Log in')}
@@ -272,6 +297,14 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
                     </Link>
                   </li>
                 ))}
+                {canAddGames && (
+                  <li>
+                    <Link href="/games/add" onClick={() => setGamesOpen(false)} className="flex items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted hover:bg-surface-2">
+                      <span aria-hidden className="grid h-2.5 w-2.5 place-items-center text-[11px] leading-none">+</span>
+                      {t('Add game')}
+                    </Link>
+                  </li>
+                )}
               </ul>
             </>
           )}

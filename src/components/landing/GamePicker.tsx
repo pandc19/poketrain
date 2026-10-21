@@ -116,12 +116,16 @@ export function GamePicker({ games }: { games: PickerGame[] }) {
 
           {game.versions && <p className="mt-3 text-sm leading-relaxed text-muted">{game.versions}</p>}
 
-          <Link
-            href={`/${game.id}/pokedex`}
-            className="mt-4 inline-flex rounded-md border border-line px-4 py-2 text-sm font-semibold text-game hover:bg-surface-2"
-          >
-            {t('Open the {game} demo', { game: game.shortName })}
-          </Link>
+          {game.inDemo ? (
+            <Link
+              href={`/${game.id}/pokedex`}
+              className="mt-4 inline-flex rounded-md border border-line px-4 py-2 text-sm font-semibold text-game hover:bg-surface-2"
+            >
+              {t('Open the {game} demo', { game: game.shortName })}
+            </Link>
+          ) : (
+            <p className="mt-4 text-sm text-muted">{t('{game} is not in the demo yet.', { game: game.shortName })}</p>
+          )}
         </div>
       </div>
 

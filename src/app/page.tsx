@@ -4,11 +4,13 @@ import { EggIcon, SparklesIcon } from '@/components/ActionIcons';
 import { KeeperIcon, TrainingIcon } from '@/components/KeeperIcon';
 import { GamePicker } from '@/components/landing/GamePicker';
 import { PokeBallIcon } from '@/components/PokeBallIcon';
+import { DEMO_USER_ID } from '@/lib/constants';
 import { getUser } from '@/lib/current-user';
 import { GAMES } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { pickerGames } from '@/lib/landing';
 import { pokedexSizes } from '@/lib/landing-data';
+import { ownedGameIds } from '@/lib/my-games';
 
 // Games on the way. They are named here, not in the game config, because they have no config yet.
 const COMING_NEXT = ['Legends: Z-A', 'Brilliant Diamond / Shining Pearl', 'Sword / Shield'];
@@ -19,9 +21,15 @@ const COMING_NEXT = ['Legends: Z-A', 'Brilliant Diamond / Shining Pearl', 'Sword
  */
 export default async function Home() {
   const user = await getUser();
-  if (!user.isDemo) redirect(`/${GAMES[0].id}/pokedex`);
+  if (!user.isDemo) {
+    // Straight to their first game, or to choosing one when they have none yet.
+    const [first] = await ownedGameIds(user.id);
+    redirect(first ? `/${first}/pokedex` : '/games/add');
+  }
   const [t, lang] = await Promise.all([getT(), getLang()]);
-  const demo = `/${GAMES[0].id}/pokedex`;
+  // The demo has the games the owner has (a copy of their saves), so only those can be opened from here.
+  const demoGames = await ownedGameIds(DEMO_USER_ID);
+  const demo = `/${demoGames[0] ?? GAMES[0].id}/pokedex`;
 
   const jobs = [
     {
@@ -74,7 +82,7 @@ export default async function Home() {
           </p>
         </div>
 
-        <GamePicker games={pickerGames(lang, t, await pokedexSizes())} />
+        <GamePicker games={pickerGames(lang, t, await pokedexSizes(), new Set(demoGames))} />
       </section>
 
       {/* ---------- what it does ---------- */}

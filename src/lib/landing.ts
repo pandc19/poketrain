@@ -16,6 +16,8 @@ export type PickerGame = {
   features: { key: FeatureKey; label: string }[];
   /** For a game sold as a pair: what the app tells you about the two versions. */
   versions: string | null;
+  /** The demo has this game, so there is something to open. */
+  inDemo: boolean;
 };
 
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
@@ -25,7 +27,14 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
  * database), what the game has (breeding, EVs, Tera types…) and, for a pair, which Pokémon only one version has.
  * Nothing is written twice, so a game added to the config appears on the landing page by itself.
  */
-export function pickerGames(lang: Lang, t: TFunction, sizes: ReadonlyMap<string, number> = new Map(), games: GameConfig[] = GAMES): PickerGame[] {
+export function pickerGames(
+  lang: Lang,
+  t: TFunction,
+  sizes: ReadonlyMap<string, number> = new Map(),
+  /** The games the demo has. Left out, every game counts as being in it. */
+  demoGames?: ReadonlySet<string>,
+  games: GameConfig[] = GAMES
+): PickerGame[] {
   return games.map((g) => {
     const f = g.features;
     const features = [
@@ -48,6 +57,7 @@ export function pickerGames(lang: Lang, t: TFunction, sizes: ReadonlyMap<string,
       versions: g.versionExclusives
         ? t('Marks the Pokémon only {own} has, and the ones you need {other} for.', { own: g.versionExclusives.ownName, other: g.versionExclusives.otherName })
         : null,
+      inDemo: demoGames ? demoGames.has(g.id) : true,
     };
   });
 }

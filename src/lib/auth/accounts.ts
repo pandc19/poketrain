@@ -1,5 +1,4 @@
 import { prisma } from '../db';
-import { GAMES } from '../games';
 import { hashPassword, verifyAgainstNothing, verifyPassword } from './password';
 import { hashToken, newToken } from './tokens';
 
@@ -117,8 +116,8 @@ export type RegisterResult = { ok: true; user: SessionUser } | { ok: false; erro
 class InviteTaken extends Error {}
 
 /**
- * Creates the account an invite is for, and uses the invite up, in one step. A new account starts with a save
- * profile for every game and no data; it is a normal user, without AI.
+ * Creates the account an invite is for, and uses the invite up, in one step. A new account starts with no games
+ * and no data; it is a normal user, without AI.
  */
 export async function registerWithInvite(input: { code: string; name: string; email: string; password: string }): Promise<RegisterResult> {
   const email = normalizeEmail(input.email);
@@ -134,8 +133,7 @@ export async function registerWithInvite(input: { code: string; name: string; em
           name: input.name,
           email,
           passwordHash,
-          // Until each account chooses its games, every account has all of them.
-          profiles: { create: GAMES.map((g) => ({ gameId: g.id, name: 'Main save' })) },
+          // No games yet: a new account chooses the ones it plays on its first visit (see my-games.ts).
         },
         select: userSelect,
       });
