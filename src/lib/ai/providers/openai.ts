@@ -1,19 +1,17 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
-import { openAiModels } from '../models';
+import { modelsFor } from '../models';
 import { AiError, type AiProvider, type GenerateRequest, type ModelTier } from '../types';
 
 export class OpenAiProvider implements AiProvider {
   readonly name = 'openai' as const;
-  // OpenAI model ids churn independently of this project, so both are env-configurable.
-  private readonly models = openAiModels();
+  // OpenAI model ids churn independently of this project, so the user can choose theirs in Settings.
+  private readonly models: ReturnType<typeof modelsFor>;
   private client: OpenAI;
-  private readonly own: boolean;
 
-  /** With a key, it is a player's own; without, the server's (OPENAI_API_KEY). */
-  constructor(apiKey?: string) {
-    this.own = apiKey !== undefined;
-    this.client = apiKey ? new OpenAI({ apiKey }) : new OpenAI();
+  constructor(options: { apiKey: string; model?: string | null }) {
+    this.models = modelsFor('openai', options.model);
+    this.client = new OpenAI({ apiKey: options.apiKey });
   }
 
   modelFor(tier: ModelTier) {
@@ -32,10 +30,7 @@ export class OpenAiProvider implements AiProvider {
       if (response.output_parsed == null) throw new AiError('OpenAI returned no usable answer. Try again.');
       return response.output_parsed as T;
     } catch (error) {
-      if (error instanceof OpenAI.AuthenticationError) {
-        if (this.own) throw new AiError('Your OpenAI API key was rejected. Check it in Settings.');
-        throw new AiError('OPENAI_API_KEY was rejected. Check .env.local.');
-      }
+      if (error instanceof OpenAI.AuthenticationError) throw new AiError('Your OpenAI API key was rejected. Check it in Settings.');
       if (error instanceof OpenAI.RateLimitError) throw new AiError('OpenAI rate limit or quota reached. Try again later.');
       if (error instanceof OpenAI.APIError) throw new AiError('OpenAI error {status}: {detail}', { status: error.status ?? '', detail: error.message });
       throw error;

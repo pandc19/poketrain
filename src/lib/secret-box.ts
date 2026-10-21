@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 /**
  * Encrypts a secret that has to be read back later (a user's AI key, which the server needs to use it), unlike a
- * password, which is only ever checked. AES-256-GCM with a key from `AI_KEY_SECRET`: 32 random bytes in base64,
+ * password, which is only ever checked. AES-256-GCM with a key from `ENCRYPTION_SECRET`: 32 random bytes in base64,
  * made with `openssl rand -base64 32`. Losing or changing the secret makes saved keys unreadable, so users add
  * theirs again; nothing else is affected.
  *
@@ -12,7 +12,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 const VERSION = 'v1';
 
 function secretKey(env: Record<string, string | undefined> = process.env): Buffer | null {
-  const raw = env.AI_KEY_SECRET?.trim();
+  const raw = env.ENCRYPTION_SECRET?.trim();
   if (!raw) return null;
   const key = Buffer.from(raw, 'base64');
   return key.length === 32 ? key : null;
@@ -24,7 +24,7 @@ export const canStoreSecrets = (env: Record<string, string | undefined> = proces
 /** `v1.iv.tag.ciphertext`, each part in base64url. */
 export function encryptSecret(plain: string, context: string, env: Record<string, string | undefined> = process.env): string {
   const key = secretKey(env);
-  if (!key) throw new Error('AI_KEY_SECRET is not set (or is not 32 bytes in base64): keys cannot be stored.');
+  if (!key) throw new Error('ENCRYPTION_SECRET is not set (or is not 32 bytes in base64): keys cannot be stored.');
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
   cipher.setAAD(Buffer.from(context));

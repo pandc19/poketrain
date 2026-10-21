@@ -60,19 +60,10 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | yes | Connection string for the `poketrain_dev` database |
-| `AI_PROVIDER` | no | `openai` (default) or `claude` |
-| `OPENAI_API_KEY` | for OpenAI | Enables AI features with OpenAI |
-| `OPENAI_BULK_MODEL` | no | Everyday requests. Default `gpt-4o-mini` |
-| `OPENAI_ESCALATION_MODEL` | no | Harder requests. Default `gpt-4o` |
-| `ANTHROPIC_API_KEY` | for Claude | Enables AI features with Claude |
-| `ANTHROPIC_WORKSPACE_ID` | if needed | Required when the API says the key is not scoped to a workspace |
-| `CLAUDE_BULK_MODEL` | no | Everyday requests. Default `claude-sonnet-5-5` |
-| `CLAUDE_ESCALATION_MODEL` | no | Harder requests. Default `claude-opus-5-5` |
-| `CLAUDE_MODEL` / `OPENAI_MODEL` | no | Older single-model setting: used for both when the pair above is not set |
+| `ENCRYPTION_SECRET` | to save an AI key | 32 random bytes in base64 (`openssl rand -base64 32`). Encrypts the AI keys saved in Settings. If it changes, saved keys become unreadable and are added again |
+| `APP_URL` | no | The address the links printed by `npm run accounts` point to. Default `http://localhost:3000` |
 
-**Which model does what.** The bulk model answers single-Pokémon audits and location lookups. The escalation model answers the whole-roster audit, and you can re-run any single audit on it with "Re-run with the stronger model". Claude models older than Opus 4.6 / Sonnet 4.6 (such as Haiku) automatically use the basic web search tool.
-
-With no API key the app runs in **no-AI mode**: everything works except the AI buttons, which explain how to turn them on. To switch provider, change `AI_PROVIDER` and restart `npm run dev`. AI answers are cached in the database, so repeating a question costs nothing.
+**The AI is set up in the app, not in the environment.** Open **Settings** and choose Anthropic (Claude) or OpenAI, paste an API key, and optionally add an Anthropic workspace id (only if Anthropic says the key needs one) and a model (otherwise the provider's default: `claude-sonnet-5-5`, or `gpt-4o-mini`). Everyone does this for themselves, the owner included. The key and the model are checked with the provider (requests that cost nothing) before they are saved, and the key is stored encrypted. Without it the app runs in **no-AI mode**: everything works except the AI audit and the where-to-catch lookup, whose buttons are hidden. AI answers are saved in the database, so switching provider or model keeps them.
 
 ### Other commands
 
@@ -102,7 +93,7 @@ Anyone who is not logged in uses the shared **demo** (its own copy of the data, 
 2. **Invite someone.** `npm run accounts -- requests` lists who asked; `npm run accounts -- invite --request <id>` (or `invite someone@example.com`) prints a link that works once.
 3. **A forgotten password.** `npm run accounts -- reset someone@example.com` prints a link, good once and for a day, that also logs that person out everywhere.
 
-**AI is the user's own.** Nobody gets AI by default: the demo and new accounts have none, and the AI buttons stay hidden. A user adds their own Anthropic or OpenAI key in **Settings**; it is checked with the provider (a free request), stored encrypted with `AI_KEY_SECRET`, and used only for their requests, so the provider charges them and Poké Train charges nothing. The owner's account (and any the admin gives AI to) uses the server's key from `.env.local`. Without `AI_KEY_SECRET` the app runs, but Settings cannot save keys. Everything that is not the build audit or the location lookup works without AI, including the quick audit.
+**AI is the user's own.** Nobody gets AI by default: the demo and new accounts have none, and the AI buttons stay hidden. Everyone, the owner included, sets up their own provider, key, workspace and model in **Settings** (see [Environment variables](#environment-variables)), so the provider charges them and Poké Train charges nothing. Everything that is not the build audit or the location lookup works without AI, including the quick audit.
 
 Logins never expire: they end when the person logs out. Passwords are hashed with scrypt, invite and reset links and login tokens are stored only as hashes, and the login and request forms limit repeated attempts. `npm run accounts -- users` lists the accounts. Set `APP_URL` so the links point at the right address.
 

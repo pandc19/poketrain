@@ -39,7 +39,7 @@ Then: what it does (Pokédex, roster and training, breeding planner, battle prep
 
 Schema:
 
-- `users`: `email` (unique), `passwordHash`, `role` (`ADMIN | USER`, default `USER`), `aiEnabled` (default false), the user's own encrypted AI key and provider.
+- `users`: `email` (unique), `passwordHash`, `role` (`ADMIN | USER`, default `USER`), and the user's own AI settings (provider, encrypted key, workspace, model).
 - `sessions`: `id`, `userId`, `tokenHash`, `createdAt`, `lastSeenAt`.
 - `invite_requests`: `name`, `email`, `message`, `status` (`PENDING | INVITED | DECLINED`), `createdAt`.
 - `invites`: `codeHash`, `email?`, `createdBy`, `createdAt`, `usedAt`, `usedBy`.
@@ -49,7 +49,7 @@ Schema:
 - Sessions never expire: the row lives until logout. The cookie (`httpOnly`, `Secure`, `SameSite=Lax`) is re-issued every ~30 days, since browsers cap a cookie at 400 days.
 - No email provider: the admin approves a request, the app shows a single-use invite link, the admin sends it. Password resets work the same way.
 - `/request-invite` and `/login`: honeypot field and a per-IP rate limit.
-- The existing user (today's `LOCAL_USER_ID`) becomes the `ADMIN`, with AI on.
+- The existing user (today's `LOCAL_USER_ID`) becomes the `ADMIN`.
 - `getUser()` returns the session's user, or the demo user when nobody is logged in. `requireAdmin()` guards `/admin` and its actions. Every check runs on the server.
 
 ## AI
@@ -63,7 +63,7 @@ Everything else (legality, EVs from stats, IV ratings, breeding plans, battle co
 
 Rules:
 
-- `canUseAi(user)`: the admin with AI on and a server key, or a user with their own key. The `/api/ai/*` routes return 403 otherwise; hiding a button is never the only guard.
+- `canUseAi(user)`: true when the user has set up their own AI (the server has no key of its own). The `/api/ai/*` routes return 403 otherwise; hiding a button is never the only guard.
 - Without AI the controls are **hidden**, not disabled. In their place, a short line pointing to `/settings`.
 - The demo shows saved AI answers with a label: "AI isn't available in the demo. With your own API key you can run it."
 - Every AI action has a `HelpTip` saying what it does, that it uses the user's key, and where the answer is saved.
@@ -102,18 +102,19 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 
 ### As built in PR 7
 
-- `chooseAiSource`: the user's own key first, then the server's key for an account with `aiEnabled` (the owner), otherwise none. The demo never has AI. `canUseAi` / `getAiProviderFor` in `src/lib/ai/user-provider.ts` are the only way to get a provider; the old env-only `getAiProvider` is gone, so nothing is charged to the server by chance.
+- **The AI is configured in the app, per user, and the server holds no AI key.** No AI environment variable is read (the provider, keys, workspace and models of `.env.local` are gone). Settings has the provider (Anthropic or OpenAI), the API key, an Anthropic workspace id (optional) and a model (optional; otherwise the provider's default). The owner sets up theirs like anyone else, and the per-user `aiEnabled` switch no longer exists: it only ever meant "use the server's key".
+- `getAiProviderFor` / `canUseAi` in `src/lib/ai/user-provider.ts` are the only way to get a provider. The demo never has AI, and nobody has it until they set it up.
 - `/api/ai/*` answer 403 without AI. The roster and breeding pages pass `aiEnabled` per user, and the AI buttons stay hidden without it.
-- Own keys: AES-256-GCM with `AI_KEY_SECRET`, the user's id as authenticated data (a copied blob does not decrypt), the provider and the last four characters kept beside it. A key is checked with the provider's free model-list call before it is saved, never returned to the browser, never logged. A key that cannot be decrypted counts as no key.
-- `/settings`: the account, and the AI key form (provider, key, replace, remove).
-- Still for PR 8: the hints on what each AI action does, and the demo's "AI is not available in the demo" label.
+- A key is AES-256-GCM encrypted with `ENCRYPTION_SECRET`, with the user's id as authenticated data (a copied blob does not decrypt); the provider and the last four characters are kept beside it. On save the key, the workspace and the model are checked with the provider's free calls (list models, retrieve the model), never returned to the browser, never logged. A key that cannot be decrypted counts as no key. With the key left empty only the other settings change.
+- `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
+- The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up. Still for PR 8: the hints on what each AI action does, and the demo's "AI is not available in the demo" label.
 
 ## Admin config page (`/admin`)
 
 1. Demo data: "Copy my data to demo", the time of the last copy, a confirmation (it wipes visitors' edits).
-2. AI: whether a server key and provider are set; AI on/off per user.
+2. AI: which users have AI set up (the provider only; never a key).
 3. Invite requests: pending list, Invite (makes the link) or Decline; a link can also be made without a request.
-4. Users: list, role, AI on/off, "Create a password reset link".
+4. Users: list, role, whether AI is set up, "Create a password reset link".
 5. Location dictionary: list and delete entries.
 
 ## Demo data

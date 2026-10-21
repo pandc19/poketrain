@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { chooseAiSource } from '@/lib/ai/user-provider';
+import { canUseAi, getAiProviderFor } from '@/lib/ai/user-provider';
 import { keyHint } from '@/lib/ai/verify-key';
 import { canStoreSecrets, decryptSecret, encryptSecret } from '@/lib/secret-box';
 
-const env = (secret?: string) => ({ AI_KEY_SECRET: secret });
+const env = (secret?: string) => ({ ENCRYPTION_SECRET: secret });
 const SECRET = randomBytes(32).toString('base64');
 const USER = '00000000-0000-7000-8000-0000000000aa';
 
@@ -54,19 +54,9 @@ describe('storing a key', () => {
   });
 });
 
-describe('whose key pays', () => {
-  it('uses the player’s own key before anything else', () => {
-    expect(chooseAiSource({ hasOwnKey: true, aiEnabled: false, serverKey: false })).toBe('own');
-    expect(chooseAiSource({ hasOwnKey: true, aiEnabled: true, serverKey: true })).toBe('own');
-  });
-
-  it('uses the server’s key only for an account the admin gave AI to, and only if the server has one', () => {
-    expect(chooseAiSource({ hasOwnKey: false, aiEnabled: true, serverKey: true })).toBe('server');
-    expect(chooseAiSource({ hasOwnKey: false, aiEnabled: true, serverKey: false })).toBeNull();
-  });
-
-  it('gives no AI otherwise, so nothing is charged to the server by chance', () => {
-    expect(chooseAiSource({ hasOwnKey: false, aiEnabled: false, serverKey: true })).toBeNull();
-    expect(chooseAiSource({ hasOwnKey: false, aiEnabled: false, serverKey: false })).toBeNull();
+describe('who has AI', () => {
+  it('gives the demo none, without even looking, so visitors cannot spend anything', async () => {
+    expect(await getAiProviderFor({ id: '00000000-0000-7000-8000-000000000002', isDemo: true })).toBeNull();
+    expect(await canUseAi({ id: '00000000-0000-7000-8000-000000000002', isDemo: true })).toBe(false);
   });
 });
