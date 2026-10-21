@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GAMES, type GameConfig } from '@/lib/games';
-import { groupGames } from '@/lib/my-games';
+import { confirmsRemoval, groupGames } from '@/lib/my-games';
 
 const game = (id: string, pair?: string) => ({ id, pair }) as unknown as GameConfig;
 
@@ -22,5 +22,21 @@ describe('games, grouped as they are sold', () => {
 
   it('treats a pair whose other version is missing as a single game', () => {
     expect(groupGames([game('b', 'gone')]).map((g) => g.map((x) => x.id))).toEqual([['b']]);
+  });
+});
+
+describe('confirming the removal of a game', () => {
+  const violet = { id: 'violet', shortName: 'Violet' } as unknown as GameConfig;
+
+  it('accepts the short name, whatever the capitals and the spaces around it', () => {
+    expect(confirmsRemoval('Violet', violet)).toBe(true);
+    expect(confirmsRemoval('  violet ', violet)).toBe(true);
+  });
+
+  it('refuses anything else, the other version and an empty box included', () => {
+    expect(confirmsRemoval('', violet)).toBe(false);
+    expect(confirmsRemoval('Scarlet', violet)).toBe(false);
+    expect(confirmsRemoval('Violet!', violet)).toBe(false);
+    expect(confirmsRemoval('Pokémon Violet', violet)).toBe(false);
   });
 });

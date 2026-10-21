@@ -38,3 +38,32 @@ export async function addGames(userId: string, gameIds: string[]): Promise<strin
   await prisma.gameProfile.createMany({ data: added.map((gameId) => ({ userId, gameId, name: 'Main save' })), skipDuplicates: true });
   return added;
 }
+
+export type GameData = { gameId: string; pokedexEntries: number; roster: number; breedingGoals: number; opponents: number };
+
+/** What an account has saved in each game it has, to show what removing a game would take with it. */
+export async function gameDataOf(userId: string): Promise<GameData[]> {
+  const profiles = await prisma.gameProfile.findMany({
+    where: { userId },
+    select: { gameId: true, _count: { select: { pokedexEntries: true, roster: true, breedingGoals: true, opponents: true } } },
+  });
+  return GAMES.flatMap((g) => {
+    const mine = profiles.filter((p) => p.gameId === g.id);
+    if (mine.length === 0) return [];
+    const sum = (key: 'pokedexEntries' | 'roster' | 'breedingGoals' | 'opponents') => mine.reduce((n, p) => n + p._count[key], 0);
+    return [{ gameId: g.id, pokedexEntries: sum('pokedexEntries'), roster: sum('roster'), breedingGoals: sum('breedingGoals'), opponents: sum('opponents') }];
+  });
+}
+
+/** Whether what was typed to confirm a removal is the game's short name (capitals and spaces around it do not matter). */
+export const confirmsRemoval = (typed: string, game: GameConfig): boolean => typed.trim().toLowerCase() === game.shortName.toLowerCase();
+
+/**
+ * Deletes this account's saves of one game, and with them everything under them (Pokédex, roster, team, breeding
+ * plans, opponents, saved AI answers). Only this account's rows and only this game's: nothing of another game or
+ * another account is touched. Returns how many saves went (0 if it had none).
+ */
+export async function removeGame(userId: string, gameId: string): Promise<number> {
+  const { count } = await prisma.gameProfile.deleteMany({ where: { userId, gameId } });
+  return count;
+}
