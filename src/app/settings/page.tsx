@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AiKeyForm } from '@/components/auth/AiKeyForm';
 import { removeAiSettings } from '@/app/settings/actions';
@@ -73,6 +74,17 @@ export default async function SettingsPage() {
         </div>
         <p className="mt-4 text-xs text-muted">
           {t('The key and the model are checked with the provider before they are saved. The key is stored encrypted and used only for your requests, and it is never shown again, only its last four characters. You can remove it at any time.')}
+        </p>
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="section-title">{t('Ideas')}</h2>
+        <p className="mt-2 text-sm text-muted">
+          {t('Something missing, or something that got in your way?')}{' '}
+          <Link href="/suggest" className="font-medium text-ink underline underline-offset-4 hover:text-game">
+            {t('Suggest a feature')}
+          </Link>
+          .
         </p>
       </section>
     </div>

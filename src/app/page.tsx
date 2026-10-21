@@ -115,6 +115,13 @@ export default async function Home() {
       <section className="py-10 sm:py-14">
         <h2 className="font-display text-2xl font-bold tracking-tight">{t('Coming next')}</h2>
         <p className="mt-2 max-w-xl leading-relaxed text-muted">{t('More games are added one at a time, each with its own Pokédexes and rules.')}</p>
+        <p className="mt-2 max-w-xl leading-relaxed text-muted">
+          {t('Missing a game, or something else?')}{' '}
+          <Link href="/suggest" className="font-medium text-ink underline underline-offset-4 hover:text-game">
+            {t('Suggest a feature')}
+          </Link>
+          .
+        </p>
         <ul className="mt-5 flex flex-wrap gap-3">
           {COMING_NEXT.map((name) => (
             <li key={name} className="rounded-t-md rounded-b-sm border border-dashed border-muted/60 px-4 pb-2 pt-3 font-display text-sm font-semibold text-muted">
@@ -138,6 +145,9 @@ export default async function Home() {
           </Link>
           <Link href="/request-invite" className="underline underline-offset-4 hover:text-ink">
             {t('Request an invite')}
+          </Link>
+          <Link href="/suggest" className="underline underline-offset-4 hover:text-ink">
+            {t('Suggest a feature')}
           </Link>
         </p>
       </footer>
