@@ -61,7 +61,7 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 |---|---|---|
 | `DATABASE_URL` | yes | Connection string for the `poketrain_dev` database |
 | `ENCRYPTION_SECRET` | to save an AI key | 32 random bytes in base64 (`openssl rand -base64 32`). Encrypts the AI keys saved in Settings. If it changes, saved keys become unreadable and are added again |
-| `APP_URL` | no | The address the links printed by `npm run accounts` point to. Default `http://localhost:3000` |
+| `APP_URL` | no | The address invite and password links point to. By default the address the owner is using (`http://localhost:3000` for the script) |
 
 **The AI is set up in the app, not in the environment.** Open **Settings** and choose Anthropic (Claude) or OpenAI, paste an API key, and optionally add an Anthropic workspace id (only if Anthropic says the key needs one) and a model (otherwise the provider's default: `claude-sonnet-5-5`, or `gpt-4o-mini`). Everyone does this for themselves, the owner included. The key and the model are checked with the provider (requests that cost nothing) before they are saved, and the key is stored encrypted. Without it the app runs in **no-AI mode**: everything works except the AI audit and the where-to-catch lookup, whose buttons are hidden. AI answers are saved in the database, so switching provider or model keeps them.
 
@@ -74,7 +74,7 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 | `npm run build` | Production build |
 | `npm run db:studio` | Opens Prisma Studio to browse the data |
 | `npm run db:reset` | **Deletes all data** in the database (roster, Pokédex, breeding plans, AI cache, and the Pokémon reference data) but keeps the tables. It does nothing else and runs no migration. Afterwards run `npm run db:seed` and then `npm run sync:pokeapi` |
-| `npm run accounts -- <task>` | Account tasks by hand: `admin` (the owner's login), `invite`, `requests`, `reset`, `users`. See [Accounts](#accounts) |
+| `npm run accounts -- <task>` | The two account tasks for when nobody can log in: `admin` (the owner's login) and `reset <email>` (a password link). The rest is on the Admin page. See [Accounts](#accounts) |
 | `npm run locations:import-legacy` | One-off: moves the "where do I catch it?" answers saved in the old per-user AI cache into the shared location dictionary. Safe to repeat. Reads `DATABASE_URL` from `.env.local` |
 | `docker exec -it postgres18 psql -U poketrain -d poketrain_dev` | Opens a SQL shell on the database |
 
@@ -87,15 +87,15 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 
 ## Accounts
 
-Anyone who is not logged in uses the shared **demo** (its own copy of the data, which visitors can edit). Accounts are **by invitation**: people ask on `/request-invite`, and the owner sends them a one-time link. There is no email service, so links are made and sent by hand until the admin page exists.
+Anyone who is not logged in uses the shared **demo** (its own copy of the data, which visitors can edit). Accounts are **by invitation**: people ask on `/request-invite`, and the owner sends them a one-time link. There is no email service, so the owner copies each link and sends it by hand.
 
 1. **Log in as the owner.** Your data belongs to the owner account, which has no login until you give it one: `npm run accounts -- admin` (asks for an email and a password, not shown). Without it, the app shows the demo.
-2. **Invite someone.** `npm run accounts -- requests` lists who asked; `npm run accounts -- invite --request <id>` (or `invite someone@example.com`) prints a link that works once.
-3. **A forgotten password.** `npm run accounts -- reset someone@example.com` prints a link, good once and for a day, that also logs that person out everywhere.
+2. **Everything else is on the Admin page** (the *Admin* link in the header, for the owner only): invite requests (Invite or Decline), invites made by hand and the ones not used yet (which can be revoked), the users, with a one-time **password link** for each, and the shared list of where to catch each Pokémon, where a wrong answer can be deleted. A link is shown once, when it is made: only a hash of it is kept.
+3. **A forgotten password of your own.** The page cannot help when nobody can log in, so `npm run accounts -- reset you@example.com` prints a link, good once and for a day.
 
 **AI is the user's own.** Nobody gets AI by default: the demo and new accounts have none, and the AI buttons stay hidden. Everyone, the owner included, sets up their own provider, key, workspace and model in **Settings** (see [Environment variables](#environment-variables)), so the provider charges them and PokéTrain charges nothing. Everything that is not the build audit or the location lookup works without AI, including the quick audit.
 
-Logins never expire: they end when the person logs out. Passwords are hashed with scrypt, invite and reset links and login tokens are stored only as hashes, and the login and request forms limit repeated attempts. `npm run accounts -- users` lists the accounts. Set `APP_URL` so the links point at the right address.
+Logins never expire: they end when the person logs out. Passwords are hashed with scrypt, invite and reset links and login tokens are stored only as hashes, and the login and request forms limit repeated attempts. Links point at the address the owner is using; set `APP_URL` to force one.
 
 ## Deploying
 
