@@ -96,7 +96,7 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - Passwords: scrypt, the cost kept in the hash. Invite, reset and login tokens: 256 random bits, stored only as a SHA-256 hash.
 - The login, request and register forms are server actions that return short error codes (never text), so every message goes through `t()`. Limits are in memory: failed logins per address and per email, requests per address, and a honeypot on the request form.
 - A new account has a profile for every game until accounts choose their games (PR 12).
-- Until the admin page (PR 9), the owner uses `npm run accounts`: `admin`, `invite`, `requests`, `reset`, `users`. PR 9 moves invites, requests, users and password links into the page and drops those commands. `admin` (the owner's first login) and `reset` stay as a recovery tool: they are what is needed when nobody can log in, which the page cannot help with.
+- Until the admin page (PR 9), the owner used `npm run accounts`. PR 9 moved invites, requests, users and password links into the page and dropped those commands; `admin` (the owner's first login) and `reset` stay as a recovery tool, since they are what is needed when nobody can log in, which the page cannot help with.
 - A password needs 8 characters at least (`src/lib/auth/rules.ts`); the forms show the same number.
 - The existing user became the admin by migration, and a `Demo` user (no email, no password) was added with a profile per game. Whoever is not logged in is the demo.
 
@@ -108,6 +108,14 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - A key is AES-256-GCM encrypted with `ENCRYPTION_SECRET`, with the user's id as authenticated data (a copied blob does not decrypt); the provider and the last four characters are kept beside it. On save the key, the workspace and the model are checked with the provider's free calls (list models, retrieve the model), never returned to the browser, never logged. A key that cannot be decrypted counts as no key. With the key left empty only the other settings change.
 - `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
 - The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up.
+
+### As built in PR 9
+
+- `/admin` (and every action behind it) is for the admin only: anyone else gets a 404, as if there were nothing there. Each server action checks the caller itself, since actions are reachable endpoints; hiding the page would not be a guard.
+- Sections: invite requests (Invite makes a one-time link tied to the person's email and marks the request invited; Decline; answered ones fold away, and an invited one can get a fresh link); invites (make one for an email or for anyone, see the ones not used yet, revoke one); users (role, email, whether AI is set up, logins, and a one-time password link); the location dictionary (newest 50, search by name, delete an entry).
+- A link is shown once, with a Copy button: only a hash is kept, so a lost one is revoked and made again. Links point at `APP_URL` when set, otherwise at the address the admin is using.
+- The *Admin* link shows in the header for the admin only.
+- Left for PR 10: the demo section (copy the admin's data to the demo).
 
 ### As built in PR 8
 

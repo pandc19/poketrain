@@ -194,6 +194,11 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
             </Link>
           ) : (
             <div className="flex items-center gap-2 text-xs text-white/90">
+              {user.admin && (
+                <Link href="/admin" className="rounded-md px-2 py-1.5 font-display font-semibold text-white/90 hover:bg-black/20">
+                  {t('Admin')}
+                </Link>
+              )}
               <Link href="/settings" className="hidden max-w-32 truncate hover:underline sm:inline" title={t('Settings')}>
                 {user.name}
               </Link>
