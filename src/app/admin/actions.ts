@@ -102,3 +102,25 @@ export async function copyToDemo(): Promise<CopyResult> {
     return { error: 'failed' };
   }
 }
+
+/** Folds a suggestion away once it has been dealt with. It is not lost: it can be brought back. */
+export async function archiveSuggestion(suggestionId: string): Promise<void> {
+  await requireAdmin();
+  if (!Id.safeParse(suggestionId).success) return;
+  await prisma.featureSuggestion.updateMany({ where: { id: suggestionId, archivedAt: null }, data: { archivedAt: new Date() } });
+  revalidatePath('/admin');
+}
+
+export async function restoreSuggestion(suggestionId: string): Promise<void> {
+  await requireAdmin();
+  if (!Id.safeParse(suggestionId).success) return;
+  await prisma.featureSuggestion.updateMany({ where: { id: suggestionId }, data: { archivedAt: null } });
+  revalidatePath('/admin');
+}
+
+export async function deleteSuggestion(suggestionId: string): Promise<void> {
+  await requireAdmin();
+  if (!Id.safeParse(suggestionId).success) return;
+  await prisma.featureSuggestion.deleteMany({ where: { id: suggestionId } });
+  revalidatePath('/admin');
+}

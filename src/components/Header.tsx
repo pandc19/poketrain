@@ -29,7 +29,7 @@ const COMING_SOON = ['Legends: Z-A'];
 
 // Pages that are not about a game: the landing page and the account pages. They get a plainer header, without
 // the games and the sections, which would only lead a visitor into the app from a page about something else.
-const PLAIN_PATHS = ['/login', '/register', '/request-invite', '/reset-password'];
+const PLAIN_PATHS = ['/login', '/register', '/request-invite', '/reset-password', '/suggest'];
 
 type HeaderUser = { name: string; admin: boolean; demo: boolean };
 

@@ -116,6 +116,12 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - The landing and the account pages (login, register, request an invite, reset) get a plainer header without the games and the sections.
 - Every page of the demo carries a banner for visitors ("You are viewing the demo…", with Log in, Request an invite and About PokéTrain); logged-in users never see it.
 
+### As built: the suggestions page
+
+- `/suggest` (plain header, like the account pages) is open to everyone. A visitor gives a message of 10 to 2000 characters and, optionally, a name and an email; someone logged in is stored by `userId` and what they might have typed in the optional boxes is ignored. A hidden field catches bots (told it worked, stores nothing) and the limit is five an hour per person (per address for a visitor).
+- Stored in `feature_suggestions` (`archived_at` folds one away without losing it). The Admin page has a Suggestions section: newest first with who sent it, **Archive**; archived ones fold away with **Restore** and **Delete**. Every action checks for the admin itself.
+- Linked from the landing page (below "Coming next" and in the footer) and from Settings. Nothing is emailed.
+
 ### As built in PR 10
 
 - `copyUserData(from, to)` (`src/lib/demo-copy.ts`) empties the target's saves and copies the source's saves, Pokédex, roster (with moves and roles), team slots, breeding plans, battle opponents and saved AI answers, in one transaction: all or nothing. The source is only read, and copying a user onto itself is refused.

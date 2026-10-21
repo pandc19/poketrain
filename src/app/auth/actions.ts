@@ -1,6 +1,5 @@
 'use server';
 
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {
@@ -12,6 +11,7 @@ import {
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { clear, isLimited, record, take } from '@/lib/auth/rate-limit';
 import { endSession, startSession } from '@/lib/auth/session';
+import { clientAddress } from '@/lib/client-address';
 
 /**
  * What a form shows after it was sent. Errors are short codes, not text: the form turns them into words in
@@ -40,12 +40,6 @@ export type AuthState = {
 
 const MINUTE = 60 * 1000;
 const field = (formData: FormData, name: string) => String(formData.get(name) ?? '');
-
-/** Where the request comes from, for the limits. Traefik puts the real address first in X-Forwarded-For. */
-async function clientAddress(): Promise<string> {
-  const h = await headers();
-  return h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown';
-}
 
 const Email = z.email().max(200);
 const Password = z.string().min(MIN_PASSWORD_LENGTH).max(MAX_PASSWORD_LENGTH);

@@ -253,8 +253,9 @@ model User {
   locations      PokemonLocation[]
   sessions       Session[]
   passwordResets PasswordReset[]
-  invitesCreated Invite[]          @relation("InviteCreator")
-  invitesUsed    Invite[]          @relation("InviteUser")
+  invitesCreated Invite[]            @relation("InviteCreator")
+  invitesUsed    Invite[]            @relation("InviteUser")
+  suggestions    FeatureSuggestion[]
 
   @@map("users")
 }
@@ -294,6 +295,25 @@ model InviteRequest {
 
   @@index([status, createdAt])
   @@map("invite_requests")
+}
+
+/// An idea for the app, sent from the public page. The admin reads them on the Admin page.
+model FeatureSuggestion {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  message    String
+  /// Who wrote it, when they said: a visitor may leave a name and an email to be answered at.
+  name       String?
+  email      String?
+  /// The account it came from, when the sender was logged in.
+  userId     String?   @map("user_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  /// Set when the admin has dealt with it; it folds away but is not lost.
+  archivedAt DateTime? @map("archived_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([archivedAt, createdAt])
+  @@map("feature_suggestions")
 }
 
 /// A single-use link to register. Only the hash of its code is kept; the admin gets the link once.

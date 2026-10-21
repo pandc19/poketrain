@@ -85,6 +85,10 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 - **Empty Pokédex:** the reference data has not been synced. Run `npm run sync:pokeapi`.
 - **AI button says "not configured":** add a key to `.env.local` and restart the dev server.
 
+## Suggesting a feature
+
+`/suggest` is open to everyone, with no account: a message, and for a visitor an optional name and an optional email to be answered at (someone logged in is known by their account). It is linked from the landing page and from Settings. A hidden field catches bots and each person, or address, can send five an hour. The owner reads them on the Admin page, where each can be archived (it folds away and can be brought back) or deleted. Nothing is emailed: there is no email service, so the owner checks the page.
+
 ## Accounts
 
 Anyone who is not logged in lands on a front page (what PokéTrain is, the games it covers, a way to log in or ask for an invite) and can open the shared **demo** from it. Every page of the demo carries a banner that says so, with the way to log in. A logged-in user goes straight to their game. The demo is a copy of the owner's data (see below).
@@ -92,7 +96,7 @@ Anyone who is not logged in lands on a front page (what PokéTrain is, the games
 Anyone who is not logged in uses the shared **demo** (its own copy of the data, which visitors can edit). Accounts are **by invitation**: people ask on `/request-invite`, and the owner sends them a one-time link. There is no email service, so the owner copies each link and sends it by hand.
 
 1. **Log in as the owner.** Your data belongs to the owner account, which has no login until you give it one: `npm run accounts -- admin` (asks for an email and a password, not shown). Without it, the app shows the demo.
-2. **Everything else is on the Admin page** (the *Admin* link in the header, for the owner only): the **demo** ("Copy my data to the demo", see below), invite requests (Invite or Decline), invites made by hand and the ones not used yet (which can be revoked), the users, with a one-time **password link** for each, and the shared list of where to catch each Pokémon, where a wrong answer can be deleted. A link is shown once, when it is made: only a hash of it is kept.
+2. **Everything else is on the Admin page** (the *Admin* link in the header, for the owner only): the **demo** ("Copy my data to the demo", see below), the **suggestions** people sent (read, archive, delete), invite requests (Invite or Decline), invites made by hand and the ones not used yet (which can be revoked), the users, with a one-time **password link** for each, and the shared list of where to catch each Pokémon, where a wrong answer can be deleted. A link is shown once, when it is made: only a hash of it is kept.
 3. **A forgotten password of your own.** The page cannot help when nobody can log in, so `npm run accounts -- reset you@example.com` prints a link, good once and for a day.
 
 **The demo is a copy of your data.** Whoever is not logged in sees and can edit the demo, which has its own copy of your saves, Pokédex, roster, team, breeding plans, opponents and saved AI answers (never your account, your AI key or anything of anyone else). It starts empty. On the Admin page, **Copy my data to the demo** replaces everything in the demo with what you have now, including anything visitors changed there, so a game or a Pokémon you add shows up in the demo after the next copy. It asks first, shows what it copied, and is all or nothing: if it fails, the demo stays as it was.
