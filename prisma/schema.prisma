@@ -230,22 +230,24 @@ enum UserRole {
 }
 
 model User {
-  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
   name           String
   /// Lower case. Null for the demo user, which nobody logs in as.
-  email          String?  @unique
-  passwordHash   String?  @map("password_hash")
-  role           UserRole @default(USER)
+  email          String?   @unique
+  passwordHash   String?   @map("password_hash")
+  role           UserRole  @default(USER)
   /// The user's own AI settings. The AI is paid by whoever set it up, and the server holds no AI key of its own.
   /// The provider ('claude' or 'openai'); the key, encrypted (see src/lib/secret-box.ts) with its last four
   /// characters to show which one it is; an Anthropic workspace id when their key needs one; and a model to use
   /// instead of the provider's default. All null when there is no AI.
-  aiProvider     String?  @map("ai_provider")
-  aiKeyEncrypted String?  @map("ai_key_encrypted")
-  aiKeyHint      String?  @map("ai_key_hint")
-  aiWorkspaceId  String?  @map("ai_workspace_id")
-  aiModel        String?  @map("ai_model")
-  createdAt      DateTime @default(now()) @map("created_at")
+  aiProvider     String?   @map("ai_provider")
+  aiKeyEncrypted String?   @map("ai_key_encrypted")
+  aiKeyHint      String?   @map("ai_key_hint")
+  aiWorkspaceId  String?   @map("ai_workspace_id")
+  aiModel        String?   @map("ai_model")
+  /// When this user's data was last replaced by a copy of the admin's. Only the demo has one.
+  dataCopiedAt   DateTime? @map("data_copied_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   profiles       GameProfile[]
   locations      PokemonLocation[]
@@ -612,7 +614,8 @@ model AiAudit {
   profile       GameProfile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
   rosterPokemon RosterPokemon? @relation(fields: [rosterPokemonId], references: [id], onDelete: Cascade)
 
-  @@unique([kind, provider, inputHash])
+  /// Per profile: the same question asked in two profiles (a copy of a profile, for one) is two rows.
+  @@unique([profileId, kind, provider, inputHash])
   @@map("ai_audits")
 }
 

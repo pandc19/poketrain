@@ -109,13 +109,20 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
 - The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up.
 
+### As built in PR 10
+
+- `copyUserData(from, to)` (`src/lib/demo-copy.ts`) empties the target's saves and copies the source's saves, Pokédex, roster (with moves and roles), team slots, breeding plans, battle opponents and saved AI answers, in one transaction: all or nothing. The source is only read, and copying a user onto itself is refused.
+- Pointers are remapped: rows that point at a roster Pokémon (team slots, the best counter of an opponent, saved AI answers) point at its copy, as do the ids inside an opponent's frozen snapshot and an answer's JSON. A stale best-counter id is dropped. Imports are not carried over. Copied Pokémon get new version-7 UUIDs made in code, since they are needed before the rows exist.
+- Saved AI answers are now unique per save (`profile_id` is in the key), so a copy does not collide with its original. The audit cache reads and writes with the profile in its key.
+- The demo remembers when it was last copied (`users.data_copied_at`). The Admin page has a Demo section: when it was last copied, how many Pokémon it has, and **Copy my data to the demo**, which asks first because visitors' edits are lost, and shows what it copied.
+- A game or Pokémon the owner adds comes along on the next copy, since the copy takes whatever saves the owner has.
+
 ### As built in PR 9
 
 - `/admin` (and every action behind it) is for the admin only: anyone else gets a 404, as if there were nothing there. Each server action checks the caller itself, since actions are reachable endpoints; hiding the page would not be a guard.
 - Sections: invite requests (Invite makes a one-time link tied to the person's email and marks the request invited; Decline; answered ones fold away, and an invited one can get a fresh link); invites (make one for an email or for anyone, see the ones not used yet, revoke one); users (role, email, whether AI is set up, logins, and a one-time password link); the location dictionary (newest 50, search by name, delete an entry).
 - A link is shown once, with a Copy button: only a hash is kept, so a lost one is revoked and made again. Links point at `APP_URL` when set, otherwise at the address the admin is using.
 - The *Admin* link shows in the header for the admin only.
-- Left for PR 10: the demo section (copy the admin's data to the demo).
 
 ### As built in PR 8
 

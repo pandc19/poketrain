@@ -1,5 +1,7 @@
 import { declineRequest, deleteLocation, revokeInvite } from '@/app/admin/actions';
+import { CopyToDemo } from '@/components/admin/CopyToDemo';
 import { InviteFromRequest, NewInviteForm, ResetLinkButton } from '@/components/admin/LinkForms';
+import { DEMO_USER_ID } from '@/lib/constants';
 import { requireAdmin } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { GAMES } from '@/lib/games';
@@ -17,9 +19,12 @@ export default async function AdminPage({ searchParams }: PageProps<'/admin'>) {
   const { q } = await searchParams;
   const query = typeof q === 'string' ? q.trim().slice(0, 60) : '';
   const [t, lang] = await Promise.all([getT(), getLang()]);
+  const dateTime = (d: Date) => d.toLocaleString(lang === 'es' ? 'es-ES' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const date = (d: Date) => d.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-  const [pending, handled, openInvites, users, locations, locationTotal] = await Promise.all([
+  const [demo, demoRoster, pending, handled, openInvites, users, locations, locationTotal] = await Promise.all([
+    prisma.user.findUnique({ where: { id: DEMO_USER_ID }, select: { dataCopiedAt: true } }),
+    prisma.rosterPokemon.count({ where: { profile: { userId: DEMO_USER_ID } } }),
     prisma.inviteRequest.findMany({ where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' } }),
     prisma.inviteRequest.findMany({ where: { status: { not: 'PENDING' } }, orderBy: { createdAt: 'desc' }, take: HANDLED_REQUESTS_SHOWN }),
     prisma.invite.findMany({
@@ -60,6 +65,23 @@ export default async function AdminPage({ searchParams }: PageProps<'/admin'>) {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 py-4">
       <h1 className="font-display text-2xl font-bold tracking-tight">{t('Admin')}</h1>
+
+      {/* ---------- the demo ---------- */}
+      <section className={card}>
+        <h2 className="section-title">{t('Demo')}</h2>
+        <p className="mt-2 text-sm text-muted">
+          {t('Anyone who is not logged in uses the demo, which has its own copy of your data. Copy again when you add a game or a Pokémon you want it to have.')}
+        </p>
+        <p className="mt-2 text-sm">
+          {demo?.dataCopiedAt
+            ? t('Last copied {when}.', { when: dateTime(demo.dataCopiedAt) })
+            : t('Never copied: the demo has only what visitors added.')}{' '}
+          <span className="text-muted">{t('{n} Pokémon in the demo now.', { n: demoRoster })}</span>
+        </p>
+        <div className="mt-4">
+          <CopyToDemo />
+        </div>
+      </section>
 
       {/* ---------- invite requests ---------- */}
       <section className={card}>
