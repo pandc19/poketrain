@@ -8,7 +8,7 @@ import {
   requestInvite as saveInviteRequest,
   resetPassword as saveNewPassword,
 } from '@/lib/auth/accounts';
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
+import { cleanName, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { clear, isLimited, record, take } from '@/lib/auth/rate-limit';
 import { endSession, startSession } from '@/lib/auth/session';
 import { clientAddress } from '@/lib/client-address';
@@ -84,7 +84,7 @@ export async function requestInvite(_state: AuthState, formData: FormData): Prom
     return { error: 'blocked' };
   }
 
-  const name = field(formData, 'name').trim().slice(0, 100);
+  const name = cleanName(field(formData, 'name'));
   const email = field(formData, 'email').trim().toLowerCase();
   const message = field(formData, 'message').trim().slice(0, 1000);
   const values = { name, email, message };
@@ -100,7 +100,7 @@ export async function requestInvite(_state: AuthState, formData: FormData): Prom
 
 export async function register(_state: AuthState, formData: FormData): Promise<AuthState> {
   const code = field(formData, 'invite');
-  const name = field(formData, 'name').trim().slice(0, 100);
+  const name = cleanName(field(formData, 'name'));
   const email = field(formData, 'email').trim().toLowerCase();
   const password = field(formData, 'password');
   const values = { name, email };

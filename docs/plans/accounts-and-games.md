@@ -106,7 +106,7 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - `getAiProviderFor` / `canUseAi` in `src/lib/ai/user-provider.ts` are the only way to get a provider. The demo never has AI, and nobody has it until they set it up.
 - `/api/ai/*` answer 403 without AI. The roster and breeding pages pass `aiEnabled` per user, and the AI buttons stay hidden without it.
 - A key is AES-256-GCM encrypted with `ENCRYPTION_SECRET`, with the user's id as authenticated data (a copied blob does not decrypt); the provider and the last four characters are kept beside it. On save the key, the workspace and the model are checked with the provider's free calls (list models, retrieve the model), never returned to the browser, never logged. A key that cannot be decrypted counts as no key. With the key left empty only the other settings change.
-- `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
+- `/settings`: the account (the name can be changed there; the email is fixed, because it is how people log in), and the AI form (provider, key, workspace, model; remove).
 - The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up.
 
 ### As built in PR 12
@@ -116,7 +116,7 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - The header lists only the account's games. Opening a game the account has not added is not an error: it goes to Add game with that game already ticked; a visitor, whose demo lacks it, goes to the front page. The API answers 404 for a game the account does not have.
 - `/` goes to the account's first game, or to Add game when it has none. The landing page's demo links only offer the games the demo has (the demo is a copy of the owner's saves, so it has the owner's games).
 - The seed still gives the owner and the demo every game, so a new development database works at once.
-- Not built: removing a game from an account (it would delete its data, so it needs its own, careful design).
+- Removing a game is in Settings, under **My games**: each game the account has, with what is saved in it (Pokédex entries, roster Pokémon), and a Remove button. It opens a dialog that says what goes (the Pokédex, roster, team, breeding plans, battles and saved AI answers of that game; nothing of any other game) and asks for the game's short name to be typed ("Violet"; capitals and spaces do not matter). The server checks the name itself, because a server action is a public endpoint, and checks the account has the game. Only this account's saves of that game are deleted (every table under a save cascades); the demo cannot do it, and ten removals an hour is the limit. Afterwards `/` sends the account to its first game left, or to Add game. Scarlet and Violet are separate saves, so removing one keeps the other. The demo is not touched until the next copy from the owner.
 
 ### As built in PR 11
 

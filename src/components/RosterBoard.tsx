@@ -662,7 +662,7 @@ export function RosterBoard({
                   </button>
                 ))}
               </div>
-              <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted">
+              <label className="flex min-w-[10rem] flex-1 items-center gap-2 text-xs text-muted">
                 {t('Sort')}
                 <select
                   value={sort}
