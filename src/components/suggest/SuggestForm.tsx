@@ -5,6 +5,7 @@ import { useActionState } from 'react';
 import { suggestFeature } from '@/app/suggest/actions';
 import { SubmitButton } from '@/components/auth/parts';
 import { MAX_SUGGESTION, MIN_SUGGESTION } from '@/lib/suggestion';
+import { TRAP_FIELD } from '@/lib/trap';
 import { useT } from '@/lib/translate-client';
 
 const input = 'mt-1 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-[var(--game-accent)]';
@@ -35,6 +36,7 @@ export function SuggestForm({ sender }: { sender: string | null }) {
     long: t('That is too long: at most {n} characters.', { n: MAX_SUGGESTION }),
     email: t('Use a valid email address, or leave it empty.'),
     'rate-limit': t('You have sent a few already. Try again in a while.'),
+    blocked: t('That did not go through. Reload the page and try again.'),
   } as const;
 
   return (
@@ -75,8 +77,8 @@ export function SuggestForm({ sender }: { sender: string | null }) {
       {/* A field for bots: people never see it, so anything typed in it means the form was filled in by a program. */}
       <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
         <label>
-          Website
-          <input name="website" tabIndex={-1} autoComplete="off" />
+          Leave this empty
+          <input name={TRAP_FIELD} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
       <SubmitButton pending={pending}>{pending ? t('Sending…') : t('Send the idea')}</SubmitButton>

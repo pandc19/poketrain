@@ -89,6 +89,7 @@ export function AuthError({ code }: { code?: AuthErrorCode }) {
     'email-mismatch': t('This invite is for a different email address.'),
     'email-taken': t('That email already has an account. Try logging in.'),
     link: t('This link is not valid, or it has expired.'),
+    blocked: t('That did not go through. Reload the page and try again.'),
   };
   return (
     <p role="alert" className="rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">

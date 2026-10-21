@@ -644,6 +644,7 @@ export const ES: Record<string, string> = {
   'Sent as {name}.': 'Enviado como {name}.',
   'Optional. Only if you would like an answer.': 'Opcional. Solo si quieres una respuesta.',
   'Send the idea': 'Enviar la idea',
+  'That did not go through. Reload the page and try again.': 'No se ha podido enviar. Recarga la página e inténtalo de nuevo.',
   'Your roster is empty': 'Tu equipo está vacío',
   'a Mirror Herb and leave one move slot empty, then have a picnic with': 'una Hierba Copia y deja un hueco de movimiento libre; luego haz un picnic con',
   'always female': 'siempre hembra',
