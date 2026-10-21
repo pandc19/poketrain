@@ -511,6 +511,8 @@ export const ES: Record<string, string> = {
   'Save the key': 'Guardar la clave',
   'Settings': 'Ajustes',
   'Account': 'Cuenta',
+  'Name saved.': 'Nombre guardado.',
+  'Save name': 'Guardar nombre',
   'The AI can review a Pokémon and suggest its held item, moves, EVs, nature and Tera type, and look up where to catch one. Everything else, including the quick audit, works without it.': 'La IA puede revisar un Pokémon y sugerir su objeto equipado, movimientos, EVs, naturaleza y teratipo, y buscar dónde capturarlo. Todo lo demás, incluida la auditoría rápida, funciona sin ella.',
   'It uses your own API key, from Anthropic or OpenAI. The provider charges you for what you ask; PokéTrain charges nothing.': 'Usa tu propia clave de API, de Anthropic o de OpenAI. El proveedor te cobra lo que pidas; PokéTrain no cobra nada.',
   'Remove the key': 'Quitar la clave',

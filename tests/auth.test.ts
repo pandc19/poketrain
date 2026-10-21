@@ -113,3 +113,12 @@ describe('rate limit', () => {
     clear('invite:ip');
   });
 });
+
+describe('account names', () => {
+  it('trims, joins runs of spaces and cuts to the longest allowed', async () => {
+    const { cleanName, MAX_NAME_LENGTH } = await import('@/lib/auth/rules');
+    expect(cleanName('  Ash   Ketchum \n')).toBe('Ash Ketchum');
+    expect(cleanName('   ')).toBe('');
+    expect(cleanName('x'.repeat(MAX_NAME_LENGTH + 50))).toHaveLength(MAX_NAME_LENGTH);
+  });
+});

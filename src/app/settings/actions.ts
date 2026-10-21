@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { verifyAiSettings, keyHint } from '@/lib/ai/verify-key';
 import { take } from '@/lib/auth/rate-limit';
+import { cleanName } from '@/lib/auth/rules';
 import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { canStoreSecrets, decryptSecret, encryptSecret } from '@/lib/secret-box';
@@ -81,4 +82,20 @@ export async function removeAiSettings(): Promise<void> {
     data: { aiProvider: null, aiKeyEncrypted: null, aiKeyHint: null, aiWorkspaceId: null, aiModel: null },
   });
   revalidatePath('/', 'layout');
+}
+
+export type NameFormState = { error?: 'name' | 'rate-limit'; saved?: boolean; value?: string } | undefined;
+
+/** Changes the name on the account. It is only a label (people log in with their email), so nothing else depends on it. */
+export async function renameAccount(_state: NameFormState, formData: FormData): Promise<NameFormState> {
+  const user = await getUser();
+  if (user.isDemo) redirect('/login');
+
+  const name = cleanName(String(formData.get('name') ?? ''));
+  if (!name) return { error: 'name', value: name };
+  if (!take(`rename:${user.id}`, 10, HOUR)) return { error: 'rate-limit', value: name };
+
+  await prisma.user.update({ where: { id: user.id }, data: { name } });
+  revalidatePath('/', 'layout');
+  return { saved: true, value: name };
 }

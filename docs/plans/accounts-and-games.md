@@ -106,7 +106,7 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - `getAiProviderFor` / `canUseAi` in `src/lib/ai/user-provider.ts` are the only way to get a provider. The demo never has AI, and nobody has it until they set it up.
 - `/api/ai/*` answer 403 without AI. The roster and breeding pages pass `aiEnabled` per user, and the AI buttons stay hidden without it.
 - A key is AES-256-GCM encrypted with `ENCRYPTION_SECRET`, with the user's id as authenticated data (a copied blob does not decrypt); the provider and the last four characters are kept beside it. On save the key, the workspace and the model are checked with the provider's free calls (list models, retrieve the model), never returned to the browser, never logged. A key that cannot be decrypted counts as no key. With the key left empty only the other settings change.
-- `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
+- `/settings`: the account (the name can be changed there; the email is fixed, because it is how people log in), and the AI form (provider, key, workspace, model; remove).
 - The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up.
 
 ### As built in PR 12
