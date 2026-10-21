@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AiHelp, AiUnavailable, DemoAiNote, useAiAccess } from './AiAccess';
 import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
 import { SearchInput } from './SearchInput';
@@ -19,19 +20,18 @@ export type EvSource = NonNullable<NonNullable<BuildAudit['evPlan']['sources']>[
 export function SourceRow({
   s,
   gameId,
-  aiEnabled,
   known,
   card = false,
 }: {
   s: EvSource;
   gameId?: string;
-  aiEnabled?: boolean;
   /** An answer saved earlier, so it survives a reload. */
   known?: LocationResult;
   /** A small card with the picture, instead of a bullet in a list. */
   card?: boolean;
 }) {
   const { t, lang } = useT();
+  const { enabled: aiEnabled } = useAiAccess();
   const [state, setState] = useState<{ busy: boolean; result?: LocationResult; error?: string }>({ busy: false });
   // A saved answer starts collapsed; a lookup you just made opens.
   const [open, setOpen] = useState(false);
@@ -62,13 +62,18 @@ export function SourceRow({
         <button
           onClick={result ? () => setOpen(!open) : () => locate()}
           disabled={state.busy}
-          title={result ? undefined : t('Researched on the web with AI, then saved for everyone')}
           className="ml-2 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted hover:text-ink disabled:opacity-40"
         >
           {state.busy ? t('Searching…') : result ? (open ? t('Hide') : t('Show')) : t('Where do I find it?')}
         </button>
       )}
-      {gameId && !result && !aiEnabled && <p className="mt-0.5 text-[10px] text-muted">{t('Nobody has found where it lives yet. Add your AI key in Settings to look it up.')}</p>}
+      {/* The button that asks the AI explains itself; an answer that is already there does not need to. */}
+      {gameId && !result && aiEnabled && <span className="ml-1"><AiHelp kind="location" /></span>}
+      {gameId && !result && !aiEnabled && (
+        <p className="mt-0.5 text-[10px] text-muted">
+          {t('Nobody has found where it lives yet.')} <AiUnavailable kind="location" />
+        </p>
+      )}
       {state.error && <p className="text-pending">{state.error}</p>}
       {result && open && (
         <div className="mt-1 rounded bg-surface p-2 text-muted">
@@ -87,6 +92,7 @@ export function SourceRow({
               {state.busy ? t('Searching…') : t('Search again')}
             </button>
           )}
+          <DemoAiNote />
         </div>
       )}
     </>
@@ -123,7 +129,6 @@ export function EvSourcesDialog({
   gameId,
   stat,
   statLabel,
-  aiEnabled,
 }: {
   open: boolean;
   onClose: () => void;
@@ -132,7 +137,6 @@ export function EvSourcesDialog({
   stat: keyof EvSpread;
   /** The stat's name as shown to the player. */
   statLabel: string;
-  aiEnabled?: boolean;
 }) {
   const { t } = useT();
   const key = `${gameId}:${stat}`;
@@ -172,7 +176,7 @@ export function EvSourcesDialog({
       )}
       <div className="grid gap-2 text-xs sm:grid-cols-2">
         {filterSources(species ?? [], query).map((sp) => (
-          <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} known={known[sp.id]} card />
+          <SourceRow key={sp.id} s={sp} gameId={gameId} known={known[sp.id]} card />
         ))}
       </div>
     </Dialog>

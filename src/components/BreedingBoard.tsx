@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { AiHelp, AiUnavailable, DemoAiNote, useAiAccess } from './AiAccess';
 import { AiBadge } from './AiBadge';
 import { ConfirmDialog, Dialog } from './Dialog';
 import { HatchDialog } from './HatchDialog';
@@ -39,7 +40,6 @@ export function BreedingBoard({
   sprites,
   natures,
   lang,
-  aiEnabled,
   rosterBuilds,
   picnic,
 }: {
@@ -50,12 +50,12 @@ export function BreedingBoard({
   sprites: Record<number, string>;
   natures: Named[];
   lang: Lang;
-  aiEnabled: boolean;
   rosterBuilds: RosterBuild[];
   /** The game has picnics (Egg Power sandwiches). */
   picnic: boolean;
 }) {
   const { t } = useT();
+  const { enabled: aiEnabled } = useAiAccess();
   const optionTitles: Record<MoveOption['kind'], string> = {
     'mirror-herb': t('Mirror Herb picnic (no egg needed)'),
     breed: t('Breed with a father that knows it'),
@@ -400,7 +400,6 @@ export function BreedingBoard({
                 : locate(item.species)
             }
             disabled={location?.busy}
-            title={result ? undefined : t('Researched on the web with AI, then saved for everyone')}
             className="mt-1 rounded border border-line px-1.5 py-0.5 text-[11px] text-muted hover:text-ink disabled:opacity-40"
           >
             {location?.busy
@@ -412,8 +411,12 @@ export function BreedingBoard({
                 : t('Where do I catch it?')}
           </button>
         )}
+        {/* The button that asks the AI explains itself; an answer that is already there does not need to. */}
+        {canLookUp && !result && aiEnabled && <span className="ml-1"><AiHelp kind="location" /></span>}
         {canLookUp && !result && !aiEnabled && (
-          <p className="mt-1 text-[10px] text-muted">{t('Nobody has found where it lives yet. Add your AI key in Settings to look it up.')}</p>
+          <p className="mt-1 text-[10px] text-muted">
+            {t('Nobody has found where it lives yet.')} <AiUnavailable kind="location" />
+          </p>
         )}
         {location?.error && <p className="mt-1 text-pending">{location.error}</p>}
         {result && isOpen && (
@@ -433,6 +436,7 @@ export function BreedingBoard({
             <p className="mt-1 flex items-center gap-1.5 text-[10px]">
               <AiBadge /> {t('AI-researched. Check in game before relying on it.')}
             </p>
+            <DemoAiNote />
           </div>
         )}
       </li>

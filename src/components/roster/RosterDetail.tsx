@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { AiBadge } from '../AiBadge';
 import { AuditPanel } from '../AuditPanel';
 import { BoltIcon, EyeIcon, EyeOffIcon, SparklesIcon } from '../ActionIcons';
+import { AiHelp, AiUnavailable, useAiAccess } from '../AiAccess';
 import { ConfirmDialog } from '../Dialog';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
@@ -303,7 +304,6 @@ export function RosterDetail({
   breeding,
   estimate,
   numberLabel,
-  aiEnabled,
   auditing,
   auditOpen,
   onToggle,
@@ -336,7 +336,6 @@ export function RosterDetail({
   breeding: boolean;
   estimate?: EvEstimateInfo;
   numberLabel: string;
-  aiEnabled: boolean;
   auditing: boolean;
   auditOpen: boolean;
   onToggle: (key: TaskKey, current: TaskStatus) => void;
@@ -360,6 +359,7 @@ export function RosterDetail({
   onRemove: () => void;
 }) {
   const { t } = useT();
+  const { enabled: aiEnabled } = useAiAccess();
   const label = (x: Named | null | undefined) => (x ? (lang === 'en' ? x.nameEn : x.nameEs) : '');
   // The name in the other language: the suggestion list matches on it too.
   const other = (x: Named) => (lang === 'en' ? x.nameEs : x.nameEn);
@@ -1012,23 +1012,31 @@ export function RosterDetail({
           <BoltIcon size={14} />
           {auditing ? t('Auditing…') : t('Quick audit')}
         </button>
-        {/* The AI audit looks deeper; it is only offered where AI is on. Run again, it asks the AI again. */}
-        {aiEnabled && (
-          <button
-            onClick={() => (p.audit ? setReplacing('ai') : onAudit(false, false))}
-            disabled={auditing}
-            className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
-          >
-            <SparklesIcon size={14} />
-            {t('AI audit')}
-          </button>
+        {/* The AI audit looks deeper. Where there is no AI, a line says why and what to do instead of a button. */}
+        {aiEnabled ? (
+          <>
+            <button
+              onClick={() => (p.audit ? setReplacing('ai') : onAudit(false, false))}
+              disabled={auditing}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-xs disabled:opacity-40"
+            >
+              <SparklesIcon size={14} />
+              {t('AI audit')}
+            </button>
+            <span className="self-center">
+              <AiHelp kind="audit" />
+            </span>
+          </>
+        ) : (
+          <span className="self-center">
+            <AiUnavailable kind="audit" />
+          </span>
         )}
       </div>
 
       {auditOpen && p.audit && (
         <AuditPanel
           gameId={gameId}
-          aiEnabled={aiEnabled}
           locks={p.auditLocks}
           onLocksChange={(locks) => void save({ auditLocks: locks })}
           compare={compareRows}

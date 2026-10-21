@@ -1,9 +1,7 @@
 import { notFound } from 'next/navigation';
 import { BreedingBoard } from '@/components/BreedingBoard';
 import { BreedingSwitch } from '@/components/BreedingSwitch';
-import { canUseAi } from '@/lib/ai/user-provider';
 import { loadGoals } from '@/lib/breeding/goals';
-import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { gameDexes } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
@@ -65,7 +63,6 @@ export default async function BreedingPage({ params }: PageProps<'/[game]/breedi
         sprites={sprites}
         natures={natures}
         lang={lang}
-        aiEnabled={await canUseAi(await getUser())}
         picnic={game.features.mirrorHerb}
         rosterBuilds={roster
           .filter((p) => p.moves.some((m) => m.move))

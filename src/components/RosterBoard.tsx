@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
@@ -41,7 +40,6 @@ export function RosterBoard({
   tera,
   mints,
   breeding,
-  aiEnabled,
   accent,
 }: {
   gameId: string;
@@ -66,7 +64,6 @@ export function RosterBoard({
   mints: boolean;
   /** The game has breeding, so a nature can start a breeding plan. */
   breeding: boolean;
-  aiEnabled: boolean;
   accent: string;
 }) {
   const { t } = useT();
@@ -576,14 +573,6 @@ export function RosterBoard({
         </div>
       )}
 
-      {view === 'list' && !aiEnabled && (
-        <p className="mb-3 text-xs text-muted">
-          {t('AI audits are off. The quick audit and the move legality checks work without it, since they use game data rather than AI.')}{' '}
-          <Link href="/settings" className="underline underline-offset-2 hover:text-ink">
-            {t('Add your AI key in Settings')}
-          </Link>
-        </p>
-      )}
       {error && (
         <p role="alert" className="mb-3 rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">
           {error}
@@ -600,7 +589,6 @@ export function RosterBoard({
           accent={accent}
           viewSwitch={viewSwitch}
           gameId={gameId}
-          aiEnabled={aiEnabled}
           training={training}
           onTraining={chooseTraining}
           tera={tera}
@@ -730,7 +718,6 @@ export function RosterBoard({
               breeding={breeding}
               estimate={estimateFor(selected)}
               numberLabel={numberLabel(selected)}
-              aiEnabled={aiEnabled}
               auditing={auditing === selected.id}
               auditOpen={!hiddenAudits.has(selected.id)}
               onToggle={(key, current) => toggle(selected, key, current)}
