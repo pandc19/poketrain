@@ -1,6 +1,6 @@
-# Poké Train
+# PokéTrain
 
-Track Pokédex progress and a trained competitive roster across Pokémon games. The first game module is **Pokémon Violet**.
+Track Pokédex progress and a trained competitive roster across Pokémon games. Games so far: **Pokémon Scarlet** and **Pokémon Violet**.
 
 - **Pokédex grid** per regional dex with click, shift-click range and drag-to-paint toggling. Each game also has its own **National Dex** tab: the same caught list as its regional dexes, with a badge on Pokémon you caught in your other games.
 - **Spreadsheet importer** (.csv / .xlsx) with a column-mapping step. Reads Spanish or English names and tolerates typos.
@@ -39,7 +39,7 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
    ```bash
    cp .env.local.example .env.local
    ```
-5. **Create the tables and seed the base rows** (your user, the Violet game and one save profile).
+5. **Create the tables and seed the base rows** (your user, the games and one save profile per game).
    ```bash
    npm run db:migrate
    npm run db:seed
@@ -60,19 +60,10 @@ Track Pokédex progress and a trained competitive roster across Pokémon games. 
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | yes | Connection string for the `poketrain_dev` database |
-| `AI_PROVIDER` | no | `openai` (default) or `claude` |
-| `OPENAI_API_KEY` | for OpenAI | Enables AI features with OpenAI |
-| `OPENAI_BULK_MODEL` | no | Everyday requests. Default `gpt-4o-mini` |
-| `OPENAI_ESCALATION_MODEL` | no | Harder requests. Default `gpt-4o` |
-| `ANTHROPIC_API_KEY` | for Claude | Enables AI features with Claude |
-| `ANTHROPIC_WORKSPACE_ID` | if needed | Required when the API says the key is not scoped to a workspace |
-| `CLAUDE_BULK_MODEL` | no | Everyday requests. Default `claude-sonnet-5-5` |
-| `CLAUDE_ESCALATION_MODEL` | no | Harder requests. Default `claude-opus-5-5` |
-| `CLAUDE_MODEL` / `OPENAI_MODEL` | no | Older single-model setting: used for both when the pair above is not set |
+| `ENCRYPTION_SECRET` | to save an AI key | 32 random bytes in base64 (`openssl rand -base64 32`). Encrypts the AI keys saved in Settings. If it changes, saved keys become unreadable and are added again |
+| `APP_URL` | no | The address invite and password links point to. By default the address the owner is using (`http://localhost:3000` for the script) |
 
-**Which model does what.** The bulk model answers single-Pokémon audits and location lookups. The escalation model answers the whole-roster audit, and you can re-run any single audit on it with "Re-run with the stronger model". Claude models older than Opus 4.6 / Sonnet 4.6 (such as Haiku) automatically use the basic web search tool.
-
-With no API key the app runs in **no-AI mode**: everything works except the AI buttons, which explain how to turn them on. To switch provider, change `AI_PROVIDER` and restart `npm run dev`. AI answers are cached in the database, so repeating a question costs nothing.
+**The AI is set up in the app, not in the environment.** Open **Settings** and choose Anthropic (Claude) or OpenAI, paste an API key, and optionally add an Anthropic workspace id (only if Anthropic says the key needs one) and a model (otherwise the provider's default: `claude-sonnet-5-5`, or `gpt-4o-mini`). Everyone does this for themselves, the owner included. The key and the model are checked with the provider (requests that cost nothing) before they are saved, and the key is stored encrypted. Without it the app runs in **no-AI mode**: everything works except the AI audit and the where-to-catch lookup, whose buttons are hidden. AI answers are saved in the database, so switching provider or model keeps them.
 
 ### Other commands
 
@@ -83,6 +74,8 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 | `npm run build` | Production build |
 | `npm run db:studio` | Opens Prisma Studio to browse the data |
 | `npm run db:reset` | **Deletes all data** in the database (roster, Pokédex, breeding plans, AI cache, and the Pokémon reference data) but keeps the tables. It does nothing else and runs no migration. Afterwards run `npm run db:seed` and then `npm run sync:pokeapi` |
+| `npm run accounts -- <task>` | The two account tasks for when nobody can log in: `admin` (the owner's login) and `reset <email>` (a password link). The rest is on the Admin page. See [Accounts](#accounts) |
+| `npm run locations:import-legacy` | One-off: moves the "where do I catch it?" answers saved in the old per-user AI cache into the shared location dictionary. Safe to repeat. Reads `DATABASE_URL` from `.env.local` |
 | `docker exec -it postgres18 psql -U poketrain -d poketrain_dev` | Opens a SQL shell on the database |
 
 ### Common problems
@@ -91,6 +84,26 @@ With no API key the app runs in **no-AI mode**: everything works except the AI b
 - **Port 3000 is taken:** `npm run dev -- -p 3001`.
 - **Empty Pokédex:** the reference data has not been synced. Run `npm run sync:pokeapi`.
 - **AI button says "not configured":** add a key to `.env.local` and restart the dev server.
+
+## Suggesting a feature
+
+`/suggest` is open to everyone, with no account: a message, and for a visitor an optional name and an optional email to be answered at (someone logged in is known by their account). It is linked from the landing page and from Settings. A hidden field catches bots and each person, or address, can send five an hour. The owner reads them on the Admin page, where each can be archived (it folds away and can be brought back) or deleted. Nothing is emailed: there is no email service, so the owner checks the page.
+
+## Accounts
+
+Anyone who is not logged in lands on a front page (what PokéTrain is, the games it covers, a way to log in or ask for an invite) and can open the shared **demo** from it. Every page of the demo carries a banner that says so, with the way to log in. A logged-in user goes straight to their game; a new account first chooses the games it plays (**Add game**, also in the header), and each game, Scarlet and Violet included, is its own save, and Settings can remove one again (after typing its name, since it deletes that game's data). The demo is a copy of the owner's data (see below).
+
+Anyone who is not logged in uses the shared **demo** (its own copy of the data, which visitors can edit). Accounts are **by invitation**: people ask on `/request-invite`, and the owner sends them a one-time link. There is no email service, so the owner copies each link and sends it by hand.
+
+1. **Log in as the owner.** Your data belongs to the owner account, which has no login until you give it one: `npm run accounts -- admin` (asks for an email and a password, not shown). Without it, the app shows the demo.
+2. **Everything else is on the Admin page** (the *Admin* link in the header, for the owner only): the **demo** ("Copy my data to the demo", see below), the **suggestions** people sent (read, archive, delete), invite requests (Invite or Decline), invites made by hand and the ones not used yet (which can be revoked), the users, with a one-time **password link** for each, and the shared list of where to catch each Pokémon, where a wrong answer can be deleted. A link is shown once, when it is made: only a hash of it is kept.
+3. **A forgotten password of your own.** The page cannot help when nobody can log in, so `npm run accounts -- reset you@example.com` prints a link, good once and for a day.
+
+**The demo is a copy of your data.** Whoever is not logged in sees and can edit the demo, which has its own copy of your saves, Pokédex, roster, team, breeding plans, opponents and saved AI answers (never your account, your AI key or anything of anyone else). It starts empty. On the Admin page, **Copy my data to the demo** replaces everything in the demo with what you have now, including anything visitors changed there, so a game or a Pokémon you add shows up in the demo after the next copy. It asks first, shows what it copied, and is all or nothing: if it fails, the demo stays as it was.
+
+**AI is the user's own.** Nobody gets AI by default: the demo and new accounts have none, and the AI buttons stay hidden. Everyone, the owner included, sets up their own provider, key, workspace and model in **Settings** (see [Environment variables](#environment-variables)), so the provider charges them and PokéTrain charges nothing. Everything that is not the build audit or the location lookup works without AI, including the quick audit.
+
+Logins never expire: they end when the person logs out. Passwords are hashed with scrypt, invite and reset links and login tokens are stored only as hashes, and the login and request forms limit repeated attempts. Links point at the address the owner is using; set `APP_URL` to force one.
 
 ## Deploying
 

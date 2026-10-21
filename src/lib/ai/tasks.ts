@@ -1,10 +1,13 @@
 import { createHash } from 'node:crypto';
 import type { z } from 'zod';
 import { prisma } from '../db';
-import type { GameConfig } from '../games';
+import { getGame, type GameConfig } from '../games';
+import { findLocations, saveLocation } from '../locations';
+import type { StoredLocation } from '../location-text';
 import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
-import { activeMint, withFixedMoves } from '../audit-locks';
+import { auditAsk, gameHasMints } from '../audit-ask';
+import { withFixedMoves } from '../audit-locks';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
 import { syncEvStatus } from '../ev-sync';
@@ -12,40 +15,62 @@ import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
 import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
-import { type AuditAsk, type BuildAuditRaw, LocationSchema, buildAuditSchema } from './schema';
+import { type AuditAsk, type BuildAuditRaw, BilingualLocationSchema, type LocationResult, buildAuditSchema } from './schema';
 import { localizeNames } from './names';
 import { mintInForce } from '../mint';
-import type { AiProvider, ModelTier } from './types';
+import { AiError, type AiProvider, type ModelTier } from './types';
+import { RULES_VERSION, ruleAudit, type RuleMove, type RuleNature } from '../audit-rules';
+import { loadChart } from '../battle/load';
+import type { LearnableMoves } from '../breeding/moves';
 
 const PROMPT_VERSION = 20;
 
-const system = (game: GameConfig, lang: Lang) =>
+const SPANISH_RULES =
+  'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
+  'In sentences, name Pokémon, moves, items (TMs, vitamins, berries, Mints), abilities, natures, types, towns, areas and fast-travel points exactly as the Spanish (Spain) version of the game shows them, ' +
+  'as the Spanish WikiDex lists them (for example Roca Afilada, Cinta Elegida, Proteína, Firme, Intimidación), never a translation of your own. ' +
+  'If you are not sure of the Spanish name, write the English one rather than inventing it. ' +
+  'The only exception are fields that hold an identifier the app matches (the move, the item, the nature of a Mint, a Tera type and a Pokémon to look up): those stay in English exactly as the English game spells them.';
+
+/** `both` is for an answer stored in the shared dictionary, which carries an English and a Spanish version. */
+const system = (game: GameConfig, lang: Lang | 'both') =>
   [
     `You are a competitive Pokémon coach helping one player with ${game.name}.`,
     `Only recommend Pokémon, moves, items and mechanics that exist in ${game.name}, including its DLC.`,
     'Be specific and practical. If you are not sure where something is found, say so rather than guessing.',
     'Prefer advice the player can act on without starting over: say what is easy, and never suggest a move the Pokémon cannot learn in this game.',
     lang === 'es'
-      ? 'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
-        'In sentences, name Pokémon, moves, items (TMs, vitamins, berries, Mints), abilities, natures, types, towns, areas and fast-travel points exactly as the Spanish (Spain) version of the game shows them, ' +
-        'as the Spanish WikiDex lists them (for example Roca Afilada, Cinta Elegida, Proteína, Firme, Intimidación), never a translation of your own. ' +
-        'If you are not sure of the Spanish name, write the English one rather than inventing it. ' +
-        'The only exception are fields that hold an identifier the app matches (the move, the item, the nature of a Mint, a Tera type and a Pokémon to look up): those stay in English exactly as the English game spells them.'
-      : 'Write every text field in English.',
+      ? SPANISH_RULES
+      : lang === 'both'
+        ? `Fill in two versions of every text field. The "en" object is written in English. The "es" object is written like this: ${SPANISH_RULES}`
+        : 'Write every text field in English.',
   ].join(' ');
 
-/** Location answers have their own version, so changes to the audit prompt do not throw them away. */
-const LOCATION_PROMPT_VERSION = 12;
+/** Stored with each dictionary entry, to tell which prompt found it. Changing the prompt does not discard saved entries. */
+const LOCATION_PROMPT_VERSION = 13;
+
+/** The version of the prompt whose answers sat in the per-user cache before the shared dictionary. */
+const LEGACY_LOCATION_VERSION = 12;
 
 const hashOf = (model: string, input: unknown, version = PROMPT_VERSION) =>
   createHash('sha256').update(JSON.stringify({ v: version, model, input })).digest('hex');
+
+/**
+ * The key the per-user cache (ai_audits) saved a location answer under, in one language. Only the script
+ * that moves those answers into the shared dictionary needs it.
+ */
+export const legacyLocationHash = (model: string, gameId: string, pokemon: string, lang: Lang) =>
+  hashOf(model, { game: gameId, pokemon, lang }, LEGACY_LOCATION_VERSION);
+
+/** Who answers an audit: a model, or the rules (which never call `generate`). */
+type AuditSource = Pick<AiProvider, 'modelFor' | 'generate'> & { name: string };
 
 /**
  * Runs an AI task through the AiAudit cache: the same question (same kind,
  * provider and input) is answered from the database and never paid for twice.
  */
 async function cached<Raw, T = Raw>(
-  provider: AiProvider,
+  provider: AuditSource,
   key: { kind: string; profileId: string; rosterPokemonId?: string; refresh?: boolean; lang: Lang; version?: number },
   input: unknown,
   request: {
@@ -63,7 +88,8 @@ async function cached<Raw, T = Raw>(
 ): Promise<T> {
   const model = provider.modelFor(request.tier);
   const inputHash = hashOf(model, input, key.version);
-  const where = { kind_provider_inputHash: { kind: key.kind, provider: provider.name, inputHash } };
+  // Per profile: a copy of a profile (the demo's) keeps its own rows rather than sharing the original's.
+  const where = { profileId_kind_provider_inputHash: { profileId: key.profileId, kind: key.kind, provider: provider.name, inputHash } };
 
   if (!key.refresh) {
     const hit = await prisma.aiAudit.findUnique({ where });
@@ -159,14 +185,19 @@ function describeBuild(p: RosterView, hasEvs = true) {
   };
 }
 
+/** What the rules need to know about the audit being made, once it has been worked out what to ask. */
+type RulesContext = { pool: LearnableMoves; ask: AuditAsk; fixedMoves: string[]; freeEvs: boolean };
+
 export async function auditBuild(
-  provider: AiProvider,
+  provider: AuditSource,
   game: GameConfig,
   lang: Lang,
   profileId: string,
   p: RosterView,
   refresh: boolean,
-  deep = false
+  deep = false,
+  /** Answers from game data instead of asking a model (see `quickAudit`). */
+  rules?: (ctx: RulesContext) => Promise<Partial<BuildAuditRaw>>
 ) {
   const hasEvs = game.features.evs;
   // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
@@ -188,26 +219,9 @@ export async function auditBuild(
 
   const locks = p.auditLocks;
   const hasTera = game.features.teraType;
-  // Mints exist where the game's catalog lists them.
-  const hasMint = game.catalog.some((s) => s.id === 'mints');
-  // A fixed Mint only counts while it still holds (the Pokémon has it, or needs none).
-  const mintLock = hasMint
-    ? activeMint(locks, p.mintNature?.nameEn, (p.currentNature ?? p.targetNature)?.nameEn)
-    : undefined;
-  // What the player has fixed is not asked of the model again: it is kept, and the rest of the audit is worked out in code.
-  const hasNature = Boolean(p.currentNature || p.targetNature || p.mintNature);
-  const planFixed = hasEvs && p.evs != null;
-  const ask: AuditAsk = {
-    evPlan: hasEvs && !planFixed,
-    heldItem: !locks?.heldItem,
-    moves: (locks?.moves?.length ?? 0) < 4,
-    tera: hasTera && !locks?.teraType,
-    // With no nature on record, the first thing to settle is which nature to aim for; a Mint only fixes a
-    // nature it already has, so it is asked once there is one.
-    nature: !hasNature,
-    mint: hasMint && !mintLock && hasNature,
-  };
-  const nothingToAsk = !Object.values(ask).some(Boolean);
+  const hasMint = gameHasMints(game);
+  // What the player has fixed is not asked again, by any kind of audit: it is kept, and the rest is worked out.
+  const { ask, mintLock, planFixed, nothingToAsk } = auditAsk(p, { hasEvs, hasTera, hasMint });
 
   /** What is fixed, said once so the model chooses the rest to go with it. */
   const fixedNotes = [
@@ -218,10 +232,14 @@ export async function auditBuild(
     mintLock ? `Mint (fixed): ${mintLock.nature}.` : '',
   ].filter(Boolean);
 
+  // With every part fixed there is nothing to ask: the audit is the fixed parts, and it is saved as such rather
+  // than as something the model wrote.
+  const source = rules || !nothingToAsk ? provider : FIXED_SOURCE;
   return cached(
-    provider,
+    source,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
-    { build, illegal, legalMovePool, lang, locks: p.auditLocks },
+    // Rules and fixed parts are deterministic and cheap, so each Pokémon keeps its own: the answer is not shared by identical builds.
+    { build, illegal, legalMovePool, lang, locks: p.auditLocks, ...(rules || nothingToAsk ? { pokemonId: p.id } : {}) },
     {
       system: system(game, lang),
       schema: buildAuditSchema(ask, hasEvs),
@@ -267,7 +285,11 @@ export async function auditBuild(
       },
       schemaName: 'build_audit',
       // Everything is fixed: nothing is left for the model to decide.
-      local: nothingToAsk ? ({} as Partial<BuildAuditRaw>) : undefined,
+      local: rules
+        ? await rules({ pool, ask, fixedMoves: locks?.moves?.map((m) => m.move) ?? [], freeEvs: hasTarget })
+        : nothingToAsk
+          ? ({} as Partial<BuildAuditRaw>)
+          : undefined,
       // Item and EV advice depends on how this game works, so let it look things up.
       webSearch: true,
       // One Pokémon at a time is the everyday request; "deeper" is the user's choice.
@@ -341,59 +363,135 @@ export async function auditBuild(
   );
 }
 
-/** A location already researched for this Pokémon, or null. Never makes a request to the model. */
-export async function savedLocation(provider: AiProvider, game: GameConfig, lang: Lang, pokemon: string) {
-  // Whichever language it was researched in: like the other answers, it stays until it is run again.
-  const other: Lang = lang === 'es' ? 'en' : 'es';
-  for (const l of [lang, other]) {
-    const inputHash = hashOf(provider.modelFor('bulk'), { game: game.id, pokemon, lang: l }, LOCATION_PROMPT_VERSION);
-    const hit = await prisma.aiAudit.findUnique({
-      where: { kind_provider_inputHash: { kind: 'location', provider: provider.name, inputHash } },
-    });
-    if (hit) return hit.result as z.infer<typeof LocationSchema>;
-  }
-  return null;
-}
-
-/** Where to catch a Pokémon. PokéAPI has no encounter data for recent games, so this is researched. */
+/**
+ * Where to catch a Pokémon, from the shared dictionary or else from the model. PokéAPI has no encounter
+ * data for recent games, so a miss is researched on the web, in both languages at once, and saved for
+ * everyone. With `refresh` the dictionary is skipped and the entry replaced.
+ */
 export async function researchLocation(
   provider: AiProvider,
   game: GameConfig,
-  lang: Lang,
-  profileId: string,
+  userId: string,
+  speciesId: number,
   pokemon: string,
   refresh = false
-) {
+): Promise<StoredLocation> {
   if (!refresh) {
-    const saved = await savedLocation(provider, game, lang, pokemon);
+    const saved = (await findLocations(game, [speciesId])).get(speciesId);
     if (saved) return saved;
   }
-  return cached(provider, { kind: 'location', profileId, lang, refresh, version: LOCATION_PROMPT_VERSION }, { game: game.id, pokemon, lang }, {
-    system: system(game, lang),
-    schema: LocationSchema,
+  const names = sharedGameName(game);
+  const raw = await provider.generate({
+    system: system(game, 'both'),
+    schema: BilingualLocationSchema,
     schemaName: 'location',
-    // In Spanish the game names left in English are put in the game's own Spanish.
-    finish: async (r) => ({
-      ...r,
-      locations: await Promise.all(
-        r.locations.map(async (l) => ({
-          ...l,
-          place: await localizeNames(l.place, lang),
-          nearby: l.nearby ? await localizeNames(l.nearby, lang) : l.nearby,
-          details: l.details ? await localizeNames(l.details, lang) : l.details,
-        }))
-      ),
-      notes: r.notes ? await localizeNames(r.notes, lang) : r.notes,
-    }),
     webSearch: true,
     tier: 'bulk',
     prompt:
-      `Where can ${pokemon} be caught in ${game.name}? Be brief: at most two places, best first. ` +
+      `Where can ${pokemon} be caught in ${names}? Be brief: at most two places, best first. ` +
       'For each: place is the area name; nearby is the nearest fast-travel point, town or region to head to; ' +
       'details is at most one short sentence on where in the area or how to get there (DLC area or raid only, if that applies). ' +
       (game.locationNote ? `${game.locationNote} ` : '') +
+      (game.pair
+        ? 'The two versions share one map, and this answer is shared by players of both. Say where it is found in the version that has it; ' +
+          'if only one version has it, still set found to true and say in notes which version. '
+        : '') +
       'Do not explain what you could not confirm: leave it out. ' +
       'If it cannot be caught in the wild, set found to false and say in one sentence how it is obtained. ' +
       'notes stays empty unless one short sentence is essential (for example, it needs the DLC).',
+  });
+  // The Spanish version has the game names left in English put in the game's own Spanish.
+  const localize = async (b: LocationResult): Promise<LocationResult> => ({
+    ...b,
+    locations: await Promise.all(
+      b.locations.map(async (l) => ({
+        ...l,
+        place: await localizeNames(l.place, 'es'),
+        nearby: l.nearby ? await localizeNames(l.nearby, 'es') : l.nearby,
+        details: l.details ? await localizeNames(l.details, 'es') : l.details,
+      }))
+    ),
+    notes: b.notes ? await localizeNames(b.notes, 'es') : b.notes,
+  });
+  const result: StoredLocation = { en: raw.en, es: await localize(raw.es) };
+  await saveLocation(game, speciesId, result, {
+    userId,
+    provider: provider.name,
+    model: provider.modelFor('bulk'),
+    promptVersion: LOCATION_PROMPT_VERSION,
+  });
+  return result;
+}
+
+/** "Pokémon Scarlet and Violet" for a pair that shares a map, otherwise the game's own name. */
+function sharedGameName(game: GameConfig): string {
+  const pair = game.pair ? getGame(game.pair) : undefined;
+  if (!pair) return game.name;
+  const [first, second] = [game, pair].sort((a, b) => a.shortName.localeCompare(b.shortName));
+  return `${first.name} and ${second.shortName}`;
+}
+
+/** The "provider" of an audit made by rules: it has a name and a version, and never answers a request. */
+const RULES_SOURCE: AuditSource = {
+  name: 'rules',
+  modelFor: () => `rules-v${RULES_VERSION}`,
+  generate: () => Promise.reject(new Error('The rule-based audit never asks a model.')),
+};
+
+/** The "provider" of an audit with every part fixed: built from what the player fixed, and no model was asked. */
+const FIXED_SOURCE: AuditSource = {
+  name: 'fixed',
+  modelFor: () => 'fixed-parts',
+  generate: () => Promise.reject(new Error('An audit with every part fixed never asks a model.')),
+};
+
+/** Held items the rules may suggest, looked up by slug so only ones this database has are named. */
+const RULE_ITEMS = ['focus-sash', 'choice-band', 'choice-specs', 'life-orb', 'leftovers', 'assault-vest'];
+
+/**
+ * The audit without AI: the same answer as `auditBuild`, worked out from base stats, the moves the Pokémon can
+ * learn and the type chart. It is saved like an AI audit (provider "rules"), so the card shows it the same way.
+ * Always made again, since it is free and instant.
+ */
+export async function quickAudit(game: GameConfig, lang: Lang, profileId: string, p: RosterView) {
+  const final = p.finalSpecies;
+  const baseStats = final?.baseStats ?? p.baseStats;
+  if (!baseStats) throw new AiError('There is not enough data on this Pokémon to suggest how to set it up.');
+
+  return auditBuild(RULES_SOURCE, game, lang, profileId, p, true, false, async ({ pool, ask, fixedMoves, freeEvs }) => {
+    const [natures, itemRows, chart] = await Promise.all([
+      prisma.nature.findMany({ select: { nameEn: true, increased: true, decreased: true } }),
+      game.features.heldItems ? prisma.item.findMany({ where: { slug: { in: RULE_ITEMS } }, select: { slug: true, nameEn: true } }) : [],
+      loadChart(),
+    ]);
+    const known = new Set(p.moves.map((m) => m.move?.nameEn));
+    const moves: RuleMove[] = [...pool.egg, ...pool.other].map((m) => ({
+      slug: m.slug,
+      nameEn: m.nameEn,
+      type: m.type,
+      damageClass: m.damageClass,
+      power: m.power,
+      accuracy: m.accuracy,
+      known: known.has(m.nameEn),
+    }));
+    const items = Object.fromEntries(itemRows.map((i) => [i.slug, i.nameEn]));
+    const effect = mintInForce(p) ?? p.currentNature ?? p.targetNature;
+    const effectNature: RuleNature | null = natures.find((n) => n.nameEn === effect?.nameEn) ?? null;
+    const raw = ruleAudit({
+      lang,
+      types: final?.types ?? p.types,
+      baseStats,
+      moves,
+      natures,
+      effectNature,
+      fixedMoves,
+      currentEvs: p.currentEvs,
+      freeEvs,
+      items,
+      chart,
+      ask,
+      currentItemSlug: Object.entries(items).find(([, name]) => name === p.item?.nameEn)?.[0] ?? null,
+    });
+    return raw as Partial<BuildAuditRaw>;
   });
 }

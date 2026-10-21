@@ -542,15 +542,16 @@ function BreederDetail({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold">{label(p.species)}</h2>
-          <div className="ml-auto flex items-center gap-2 text-xs">
-            <label className="flex items-center gap-2 text-muted">
+          {/* min-w-0 all the way down, so on a narrow screen the nickname box shrinks instead of pushing the page wide. */}
+          <div className="ml-auto flex min-w-0 max-w-full items-center gap-2 text-xs">
+            <label className="flex min-w-0 items-center gap-2 text-muted">
               {t('Nickname')}
               <input
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 onBlur={() => nickname.trim() !== (p.nickname ?? '') && void onSave({ nickname: nickname.trim() || null })}
                 onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                className="w-40 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
+                className="w-40 min-w-0 rounded-md border border-line bg-bg px-2 py-1.5 text-sm text-ink"
               />
             </label>
             <button

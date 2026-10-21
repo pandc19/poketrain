@@ -1,17 +1,22 @@
 /**
- * Seeds the rows the app assumes exist: the single local user, every game
- * in src/lib/games, and one default profile per game. Idempotent.
+ * Seeds the rows the app assumes exist: the owner (admin) and the demo user, every game in
+ * src/lib/games, and one default profile per game for each of them. Idempotent.
  */
 import { prisma } from '../src/lib/db';
 import { GAMES } from '../src/lib/games';
 
-import { LOCAL_USER_ID } from '../src/lib/constants';
+import { DEMO_USER_ID, LOCAL_USER_ID } from '../src/lib/constants';
 
 async function main() {
   await prisma.user.upsert({
     where: { id: LOCAL_USER_ID },
     update: {},
-    create: { id: LOCAL_USER_ID, name: 'Trainer' },
+    create: { id: LOCAL_USER_ID, name: 'Trainer', role: 'ADMIN' },
+  });
+  await prisma.user.upsert({
+    where: { id: DEMO_USER_ID },
+    update: {},
+    create: { id: DEMO_USER_ID, name: 'Demo' },
   });
 
   for (const [i, game] of GAMES.entries()) {
@@ -22,14 +27,16 @@ async function main() {
       sortOrder: i,
     };
     await prisma.game.upsert({ where: { id: game.id }, update: data, create: { id: game.id, ...data } });
-    await prisma.gameProfile.upsert({
-      where: { userId_gameId_name: { userId: LOCAL_USER_ID, gameId: game.id, name: 'Main save' } },
-      update: {},
-      create: { userId: LOCAL_USER_ID, gameId: game.id, name: 'Main save' },
-    });
+    for (const userId of [LOCAL_USER_ID, DEMO_USER_ID]) {
+      await prisma.gameProfile.upsert({
+        where: { userId_gameId_name: { userId, gameId: game.id, name: 'Main save' } },
+        update: {},
+        create: { userId, gameId: game.id, name: 'Main save' },
+      });
+    }
   }
 
-  console.log(`seeded user + ${GAMES.length} game(s)`);
+  console.log(`seeded owner + demo + ${GAMES.length} game(s)`);
 }
 
 main()

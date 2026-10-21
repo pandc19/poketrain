@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
@@ -39,8 +38,8 @@ export function RosterBoard({
   evs,
   evTarget,
   tera,
+  mints,
   breeding,
-  aiEnabled,
   accent,
 }: {
   gameId: string;
@@ -61,9 +60,10 @@ export function RosterBoard({
   evTarget: boolean;
   /** The game has Tera types. */
   tera: boolean;
+  /** The game has Mints. */
+  mints: boolean;
   /** The game has breeding, so a nature can start a breeding plan. */
   breeding: boolean;
-  aiEnabled: boolean;
   accent: string;
 }) {
   const { t } = useT();
@@ -395,12 +395,14 @@ export function RosterBoard({
     void setSlot(empty + 1, id, false);
   }
 
-  async function audit(p: RosterView, refresh = false, deep = false) {
+  async function audit(p: RosterView, refresh = false, deep = false, quick = false) {
     setAuditing(p.id);
     setAuditShown(p.id, true);
     setError(null);
     try {
-      const data = await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh, deep });
+      const data = quick
+        ? await api<{ pokemon: RosterView }>('/api/audit/quick', 'POST', { rosterPokemonId: p.id })
+        : await api<{ pokemon: RosterView }>('/api/ai/audit', 'POST', { rosterPokemonId: p.id, refresh, deep });
       replace(data.pokemon);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('The audit failed.'));
@@ -547,13 +549,8 @@ export function RosterBoard({
     return (
       <div className="rounded-xl border border-dashed border-line px-6 py-16 text-center">
         <p className="text-lg font-semibold">{t('Your roster is empty')}</p>
-        <p className="mt-1 text-sm text-muted">{t('Import your training spreadsheet, or add a Pokémon by name.')}</p>
-        <div className="mt-5 flex flex-wrap justify-center gap-3">
-          <Link href={`/${gameId}/import`} className="rounded-md bg-done px-4 py-2 text-sm font-semibold text-bg">
-            {t('Import a spreadsheet')}
-          </Link>
-          {addBox}
-        </div>
+        <p className="mt-1 text-sm text-muted">{t('Add a Pokémon by name to start.')}</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-3">{addBox}</div>
         {error && <p className="mt-4 text-sm text-pending">{error}</p>}
         {dialogs}
       </div>
@@ -576,13 +573,6 @@ export function RosterBoard({
         </div>
       )}
 
-      {view === 'list' && !aiEnabled && (
-        <p className="mb-3 text-xs text-muted">
-          {t(
-            'AI audits are off: no API key is configured. Move legality checks still run, since they use game data rather than AI.'
-          )}
-        </p>
-      )}
       {error && (
         <p role="alert" className="mb-3 rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">
           {error}
@@ -599,7 +589,6 @@ export function RosterBoard({
           accent={accent}
           viewSwitch={viewSwitch}
           gameId={gameId}
-          aiEnabled={aiEnabled}
           training={training}
           onTraining={chooseTraining}
           tera={tera}
@@ -673,7 +662,7 @@ export function RosterBoard({
                   </button>
                 ))}
               </div>
-              <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-muted">
+              <label className="flex min-w-[10rem] flex-1 items-center gap-2 text-xs text-muted">
                 {t('Sort')}
                 <select
                   value={sort}
@@ -724,10 +713,11 @@ export function RosterBoard({
               judge={judge}
               evs={evs}
               evTarget={evTarget}
+              tera={tera}
+              mints={mints}
               breeding={breeding}
               estimate={estimateFor(selected)}
               numberLabel={numberLabel(selected)}
-              aiEnabled={aiEnabled}
               auditing={auditing === selected.id}
               auditOpen={!hiddenAudits.has(selected.id)}
               onToggle={(key, current) => toggle(selected, key, current)}
@@ -740,6 +730,7 @@ export function RosterBoard({
               onPotential={(v) => changePotential(selected, v)}
               onSaveStats={(stats, level, ratings) => saveStats(selected, stats, level, ratings)}
               onAudit={(refresh, deep) => audit(selected, refresh, deep)}
+              onQuickAudit={() => audit(selected, false, false, true)}
               onToggleAudit={() => setAuditShown(selected.id, hiddenAudits.has(selected.id))}
               onBreeder={(on) => setBreeder(selected, on)}
               onRemove={() => setRemoving(selected)}

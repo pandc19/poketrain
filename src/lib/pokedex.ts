@@ -1,7 +1,7 @@
 import { prisma } from './db';
-import { LOCAL_USER_ID } from './constants';
+import { getUserId } from './current-user';
 import type { Prisma } from '@prisma/client';
-import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, getGame } from './games';
+import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, gameDexes, getGame } from './games';
 import { rosterProgress } from './roster-status';
 import { exclusiveBySpecies } from './games/exclusives';
 import { type Variant, REGIONS, VARIANTS, encodeKey, variantOfSlug } from './dex-variant';
@@ -62,7 +62,7 @@ const sectionRank = (section: string) =>
   section === 'other' ? VARIANTS.length + 1 : section === 'normal' ? VARIANTS.length : VARIANTS.indexOf(section as never);
 
 const gameDexSlots = (gameId: string) =>
-  prisma.pokedexSlot.findMany({ where: { pokedex: { gameId } }, select: { speciesId: true, pokedex: { select: { slug: true } } } });
+  prisma.pokedexSlot.findMany({ where: { pokedex: gameDexes(gameId) }, select: { speciesId: true, pokedex: { select: { slug: true } } } });
 
 /** Species a Pokédex of the game lists only as a regional form, and no Pokédex lists as its normal one. */
 function normalOnly(gameId: string, slots: { speciesId: number; pokedex: { slug: string } }[]): number[] {
@@ -101,6 +101,7 @@ export async function loadDex(
   // The extra tab lists forms no Pokédex of the game numbers; each one is shown as its regional form.
   const isExtra = pokedexSlug === EXTRA_DEX_SLUG && Boolean(opts.gameId && getGame(opts.gameId)?.extraForms);
   const dexSlots = isExtra ? await gameDexSlots(opts.gameId!) : [];
+  const userId = await getUserId();
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
     isExtra
       ? Promise.all([
@@ -108,7 +109,7 @@ export async function loadDex(
             // A regional form is accepted when the game has its species in any of its Pokédexes.
             where: {
               OR: VARIANTS.map((r) => ({ slug: { contains: `-${r}` } })),
-              species: { pokedexSlots: { some: { pokedex: { gameId: opts.gameId } } } },
+              species: { pokedexSlots: { some: { pokedex: gameDexes(opts.gameId!) } } },
             },
             select: { slug: true, species: { select: speciesSelect } },
           }),
@@ -156,7 +157,7 @@ export async function loadDex(
           select: { entryNumber: true, species: { select: speciesSelect } },
         }),
     prisma.pokedexEntry.findMany({
-      where: { profile: { userId: LOCAL_USER_ID } },
+      where: { profile: { userId } },
       select: {
         speciesId: true,
         profileId: true,
@@ -168,12 +169,12 @@ export async function loadDex(
       },
     }),
     prisma.rosterPokemon.findMany({
-      where: profileId ? { profileId } : { profile: { userId: LOCAL_USER_ID } },
+      where: profileId ? { profileId } : { profile: { userId } },
       include: { moves: true, roles: true },
     }),
     // A game's National Dex lists every species; this marks which ones the game has.
     opts.gameId && pokedexSlug === NATIONAL_DEX_SLUG
-      ? prisma.pokedexSlot.findMany({ where: { pokedex: { gameId: opts.gameId } }, select: { speciesId: true } })
+      ? prisma.pokedexSlot.findMany({ where: { pokedex: gameDexes(opts.gameId) }, select: { speciesId: true } })
       : null,
     prisma.species.findMany({ select: { id: true, evolvesFromId: true, nameEn: true, nameEs: true } }),
   ]);

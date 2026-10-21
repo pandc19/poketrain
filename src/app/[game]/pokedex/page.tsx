@@ -1,5 +1,5 @@
 import { DexBrowser } from '@/components/DexBrowser';
-import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG } from '@/lib/games';
+import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, gameDexes } from '@/lib/games';
 import { getLang } from '@/lib/i18n';
 import { prisma } from '@/lib/db';
 import { loadDex } from '@/lib/pokedex';
@@ -17,7 +17,7 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
     // Pokémon no Pokédex of the game lists, which can still be registered by hand (a Mew from elsewhere).
     game.extraForms
       ? prisma.species.findMany({
-          where: { pokedexSlots: { none: { pokedex: { gameId: game.id } } } },
+          where: { pokedexSlots: { none: { pokedex: gameDexes(game.id) } } },
           select: { id: true, nameEn: true, nameEs: true },
           orderBy: { id: 'asc' },
         })

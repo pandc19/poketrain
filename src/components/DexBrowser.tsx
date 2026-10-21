@@ -99,7 +99,7 @@ export function DexBrowser({
     <div>
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">{t('{game} Pokédex', { game: gameName })}</h1>
-        <div className="flex gap-1" role="tablist">
+        <div className="flex flex-wrap gap-1" role="tablist">
           {dexes.map((d) => (
             <button
               key={d.slug}

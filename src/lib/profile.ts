@@ -1,18 +1,23 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from './db';
-import { LOCAL_USER_ID } from './constants';
+import { getUser, getUserId } from './current-user';
 import { getGame, type GameConfig } from './games';
 
-/** Resolves the `[game]` route segment to its config and the local user's profile. */
+/**
+ * Resolves the `[game]` route segment to its config and the current user's profile. A game the account has not
+ * added is not an error: someone logged in is taken to add it (with it chosen already), and a visitor, whose demo
+ * does not have that game, back to the front page.
+ */
 export async function requireGameProfile(gameId: string): Promise<{ game: GameConfig; profileId: string }> {
   const game = getGame(gameId);
   if (!game) notFound();
+  const user = await getUser();
   const profile = await prisma.gameProfile.findFirst({
-    where: { userId: LOCAL_USER_ID, gameId },
+    where: { userId: user.id, gameId },
     orderBy: { createdAt: 'asc' },
     select: { id: true },
   });
-  if (!profile) throw new Error(`No profile for game "${gameId}" -- run \`npm run db:seed\``);
+  if (!profile) redirect(user.isDemo ? '/' : `/games/add?game=${encodeURIComponent(gameId)}`);
   return { game, profileId: profile.id };
 }
 
@@ -20,7 +25,7 @@ export async function requireGameProfile(gameId: string): Promise<{ game: GameCo
 export async function findProfileId(gameId: string): Promise<string | null> {
   if (!getGame(gameId)) return null;
   const profile = await prisma.gameProfile.findFirst({
-    where: { userId: LOCAL_USER_ID, gameId },
+    where: { userId: await getUserId(), gameId },
     orderBy: { createdAt: 'asc' },
     select: { id: true },
   });

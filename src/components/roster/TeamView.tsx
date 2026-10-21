@@ -34,7 +34,6 @@ export function TeamView({
   accent,
   viewSwitch,
   gameId,
-  aiEnabled,
   training,
   onTraining,
   tera,
@@ -54,7 +53,6 @@ export function TeamView({
   /** The switch between the list and the team, kept in the bar at the top. */
   viewSwitch: React.ReactNode;
   gameId: string;
-  aiEnabled: boolean;
   /** The stat being trained, if one is chosen. */
   training: keyof EvSpread | null;
   onTraining: (stat: keyof EvSpread | null) => void;
@@ -232,7 +230,6 @@ export function TeamView({
         gameId={gameId}
         stat={training}
         statLabel={STAT_LABELS[training][lang]}
-        aiEnabled={aiEnabled}
       />
     )}
 

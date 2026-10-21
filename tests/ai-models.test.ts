@@ -1,26 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { claudeModels, claudeWebSearchTool, openAiModels } from '@/lib/ai/models';
+import { DEFAULT_MODELS, SUGGESTED_MODELS, claudeWebSearchTool, modelsFor } from '@/lib/ai/models';
 
 describe('model settings', () => {
-  it('uses the bulk and escalation pair when set', () => {
-    expect(claudeModels({ CLAUDE_BULK_MODEL: 'claude-haiku-4-5', CLAUDE_ESCALATION_MODEL: 'claude-sonnet-5-5' })).toEqual({
-      bulk: 'claude-haiku-4-5',
-      deep: 'claude-sonnet-5-5',
-    });
-    expect(openAiModels({ OPENAI_BULK_MODEL: 'a', OPENAI_ESCALATION_MODEL: 'b' })).toEqual({ bulk: 'a', deep: 'b' });
+  it('uses each provider’s own pair when the user chose nothing', () => {
+    expect(modelsFor('claude')).toEqual({ bulk: 'claude-sonnet-5-5', deep: 'claude-opus-5-5' });
+    expect(modelsFor('openai', null)).toEqual({ bulk: 'gpt-4o-mini', deep: 'gpt-4o' });
+    expect(modelsFor('claude', '   ')).toEqual(DEFAULT_MODELS.claude);
   });
 
-  it('falls back to the single-model setting, then to defaults', () => {
-    expect(claudeModels({ CLAUDE_MODEL: 'claude-opus-5-5' })).toEqual({ bulk: 'claude-opus-5-5', deep: 'claude-opus-5-5' });
-    expect(claudeModels({}).bulk).not.toBe(claudeModels({}).deep);
-    expect(openAiModels({ OPENAI_MODEL: 'x' })).toEqual({ bulk: 'x', deep: 'x' });
+  it('uses the model the user chose for every kind of request', () => {
+    expect(modelsFor('claude', 'claude-haiku-5-5')).toEqual({ bulk: 'claude-haiku-5-5', deep: 'claude-haiku-5-5' });
+    expect(modelsFor('openai', ' gpt-4o ')).toEqual({ bulk: 'gpt-4o', deep: 'gpt-4o' });
   });
 
-  it('lets one of the pair be set on its own', () => {
-    expect(claudeModels({ CLAUDE_BULK_MODEL: 'claude-haiku-4-5', CLAUDE_MODEL: 'claude-opus-5-5' })).toEqual({
-      bulk: 'claude-haiku-4-5',
-      deep: 'claude-opus-5-5',
-    });
+  it('suggests only models of the right provider', () => {
+    expect(SUGGESTED_MODELS.claude.every((m) => m.startsWith('claude-'))).toBe(true);
+    expect(SUGGESTED_MODELS.openai.every((m) => m.startsWith('gpt-'))).toBe(true);
   });
 });
 

@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
-import { AiError, NO_AI_MESSAGE, getAiProvider } from '@/lib/ai';
+import { AiError, NO_AI_MESSAGE } from '@/lib/ai';
+import { getAiProviderFor } from '@/lib/ai/user-provider';
 import { auditBuild } from '@/lib/ai/tasks';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { recomputeEvsFromStats } from '@/lib/ev-sync';
 import { getGame } from '@/lib/games';
@@ -21,11 +22,13 @@ export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError('Invalid body', 400);
 
-  const provider = getAiProvider();
-  if (!provider) return apiError(NO_AI_MESSAGE, 503);
+  // Hiding the button is not the guard: without a key of their own (or AI given by the admin) nothing is asked.
+  const user = await getUser();
+  const provider = await getAiProviderFor(user);
+  if (!provider) return apiError(NO_AI_MESSAGE, 403);
 
   const row = await prisma.rosterPokemon.findFirst({
-    where: { id: parsed.data.rosterPokemonId, profile: { userId: LOCAL_USER_ID } },
+    where: { id: parsed.data.rosterPokemonId, profile: { userId: user.id } },
     select: { profileId: true, currentEvsEstimated: true, profile: { select: { gameId: true } } },
   });
   const game = row && getGame(row.profile.gameId);

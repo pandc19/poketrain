@@ -1,6 +1,6 @@
 import type { AuditLocks } from './audit-locks';
 import { prisma } from './db';
-import type { GameConfig } from './games';
+import { dexPosition, gameDexes, type GameConfig } from './games';
 import type { EvSpread } from './import/evs';
 import type { IvRatings } from './iv-ratings';
 import { legalMoves } from './legality';
@@ -164,13 +164,13 @@ export async function loadRoster(
   const profile = await prisma.gameProfile.findUnique({ where: { id: profileId }, select: { gameId: true } });
   const slots = profile
     ? await prisma.pokedexSlot.findMany({
-        where: { pokedex: { gameId: profile.gameId }, speciesId: { in: [...new Set(rows.map((r) => r.speciesId))] } },
-        select: { speciesId: true, entryNumber: true, pokedex: { select: { sortOrder: true } } },
+        where: { pokedex: gameDexes(profile.gameId), speciesId: { in: [...new Set(rows.map((r) => r.speciesId))] } },
+        select: { speciesId: true, entryNumber: true, pokedex: { select: { slug: true } } },
       })
     : [];
   const position = new Map<number, { dexOrder: number; entryNumber: number }>();
   for (const slot of slots) {
-    const dexOrder = slot.pokedex.sortOrder * 10000 + slot.entryNumber;
+    const dexOrder = dexPosition(profile?.gameId ?? '', slot.pokedex.slug) * 10000 + slot.entryNumber;
     const known = position.get(slot.speciesId);
     if (!known || dexOrder < known.dexOrder) position.set(slot.speciesId, { dexOrder, entryNumber: slot.entryNumber });
   }
@@ -297,7 +297,7 @@ function finalOf(
 export async function loadEditorOptions(game: GameConfig) {
   const [species, moves, items, natures] = await Promise.all([
     prisma.species.findMany({
-      where: { pokedexSlots: { some: { pokedex: { gameId: game.id } } } },
+      where: { pokedexSlots: { some: { pokedex: gameDexes(game.id) } } },
       select: named,
       orderBy: { id: 'asc' },
     }),

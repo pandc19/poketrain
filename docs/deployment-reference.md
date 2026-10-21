@@ -1,4 +1,4 @@
-# Poké Train Deployment Reference
+# PokéTrain Deployment Reference
 
 Last updated: 2026-10-18
 
@@ -57,13 +57,16 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 | Variable | Notes |
 |---|---|
 | `DATABASE_URL` | `postgresql://poketrain_app:<password>@<postgres-internal-host>:5432/poketrain`. No `sslmode` and no `schema` parameter. Percent-encode special characters in the password |
-| `AI_PROVIDER` | `claude` or `openai` |
-| `ANTHROPIC_API_KEY` | secret |
-| `ANTHROPIC_WORKSPACE_ID` | |
-| `CLAUDE_MODEL` | |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | only if `AI_PROVIDER=openai` |
+| `ENCRYPTION_SECRET` | secret. 32 random bytes in base64 (`openssl rand -base64 32`). Encrypts the AI keys people save in Settings. **Required for any AI**: the app has no AI key of its own, and the owner sets theirs up in Settings like everyone else. Without it Settings cannot save keys. If it changes, saved keys become unreadable and people add them again, so keep it |
 
 `PORT=3000` and `HOSTNAME=0.0.0.0` are set in the image. The names mirror [.env.local.example](../.env.local.example); keep the two in sync when a variable is added.
+
+## Accounts
+
+The app has logins (see [Accounts](../README.md#accounts)). Nothing extra runs for them: sessions, invites and password resets are rows in the app's own database, and there is no email service. Two things to know when deploying:
+
+- **The owner has no login after the migration.** Until `npm run accounts -- admin` is run against the production database (point `DATABASE_URL` at it through the tunnel in [database-transfer.md](database-transfer.md); set `APP_URL` to the public address first so the links it prints are right), everyone sees the demo and the owner cannot log in.
+- **The demo is its own user, and it starts empty.** Its data is whatever the owner copies into it (Admin → Demo → Copy my data to the demo); visitors can edit it, and the next copy replaces their edits. After the first deploy, log in as the owner and copy once, or visitors see an empty app.
 
 ## Postgres
 

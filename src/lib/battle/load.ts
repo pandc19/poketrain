@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
-import type { GameConfig } from '../games';
+import { gameDexes, type GameConfig } from '../games';
 import { TYPE_SLUGS } from '../pokemon-types';
 import {
   abilityMatters,
@@ -216,7 +216,7 @@ async function buildIndex(game: GameConfig): Promise<GameIndex> {
         isBaby: false,
         isSpecial: false,
         evolvesTo: { none: {} },
-        pokedexSlots: { some: { pokedex: { gameId: game.id } } },
+        pokedexSlots: { some: { pokedex: gameDexes(game.id) } },
       },
       learnsets: { some: { versionGroup: { in: game.learnsetVersionGroups } } },
     },
@@ -254,7 +254,7 @@ async function buildIndex(game: GameConfig): Promise<GameIndex> {
 }
 
 let chartCache: Promise<TypeChart> | null = null;
-function loadChart() {
+export function loadChart() {
   chartCache ??= prisma.typeEffect
     .findMany()
     .then((rows) => {

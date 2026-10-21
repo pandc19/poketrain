@@ -1,11 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
-import { LOCAL_USER_ID } from '@/lib/constants';
+import { getUserId } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { variantOfSlug } from '@/lib/dex-variant';
 import { rosterGenderToPokedex } from '@/lib/gender-sync';
-import { getGame } from '@/lib/games';
+import { gameDexes, getGame } from '@/lib/games';
 import { recomputeEvsFromStats, syncEvStatus } from '@/lib/ev-sync';
 import { loadRoster, refreshLegality } from '@/lib/roster';
 
@@ -14,7 +14,7 @@ const named = { id: true, nameEn: true, nameEs: true } as const;
 async function findBreeder(rosterId: string) {
   if (!z.uuid().safeParse(rosterId).success) return null;
   return prisma.rosterPokemon.findFirst({
-    where: { id: rosterId, profile: { userId: LOCAL_USER_ID } },
+    where: { id: rosterId, profile: { userId: await getUserId() } },
     include: {
       profile: { select: { gameId: true } },
       form: { select: { slug: true } },
@@ -26,7 +26,7 @@ async function findBreeder(rosterId: string) {
 
 /** Every other stage of its line that exists in the game: the ones before (nearest first) and after. */
 async function stagesOf(gameId: string, speciesId: number, evolvesFromId: number | null) {
-  const inGame = { pokedexSlots: { some: { pokedex: { gameId } } } };
+  const inGame = { pokedexSlots: { some: { pokedex: gameDexes(gameId) } } };
   const before: { id: number; nameEn: string; nameEs: string }[] = [];
   for (let from = evolvesFromId, guard = 0; from != null && guard < 5; guard++) {
     const sp = await prisma.species.findUnique({ where: { id: from }, select: { ...named, evolvesFromId: true } });

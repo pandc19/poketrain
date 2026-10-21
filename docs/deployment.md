@@ -118,7 +118,7 @@ Settings → General → Pull Requests:
 - Allow auto-merge: on (lets a PR merge itself once the check is green).
 
 Settings → Code security (availability depends on the repo being public or on the plan):
-- Secret scanning and push protection: on. Keys such as `ANTHROPIC_API_KEY` must only ever live in Coolify and `.env.local`.
+- Secret scanning and push protection: on. The only secrets are the ones in Coolify and `.env.local` (`DATABASE_URL`, `ENCRYPTION_SECRET`); AI keys are entered in the app and stored encrypted in the database.
 - Dependabot alerts: on.
 
 Settings → Actions → General: workflow permissions "Read repository contents" (the CI workflow declares `contents: read`).
