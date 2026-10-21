@@ -4,6 +4,7 @@ import "./globals.css";
 import { AiAccessProvider } from "@/components/AiAccess";
 import { Header } from "@/components/Header";
 import { canUseAi } from "@/lib/ai/user-provider";
+import { ownedGameIds } from "@/lib/my-games";
 import { getUser } from "@/lib/current-user";
 import { prisma } from "@/lib/db";
 import { GAMES } from "@/lib/games";
@@ -34,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const [lang, theme, user] = await Promise.all([getLang(), getTheme(), getUser()]);
-  const aiEnabled = await canUseAi(user);
+  const [aiEnabled, owned] = await Promise.all([canUseAi(user), ownedGameIds(user.id)]);
   // Item names come from the game data when it has them, so what the catalog says to search
   // for is what the game really calls the item (the names written in the catalog are a fallback).
   const slugs = [...new Set(GAMES.flatMap((g) => g.catalog.flatMap((s) => s.entries.map((e) => e.item ?? e.sprite ?? ""))))].filter(Boolean);
@@ -53,7 +54,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <LangProvider lang={lang}>
           <Header
             user={{ name: user.name, admin: user.role === 'ADMIN', demo: user.isDemo }}
-            games={GAMES.map((g) => ({
+            canAddGames={!user.isDemo}
+            games={GAMES.filter((g) => owned.includes(g.id)).map((g) => ({
               id: g.id,
               shortName: g.shortName,
               pair: g.pair,
