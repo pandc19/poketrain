@@ -66,7 +66,7 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 The app has logins (see [Accounts](../README.md#accounts)). Nothing extra runs for them: sessions, invites and password resets are rows in the app's own database, and there is no email service. Two things to know when deploying:
 
 - **The owner has no login after the migration.** Until `npm run accounts -- admin` is run against the production database (point `DATABASE_URL` at it through the tunnel in [database-transfer.md](database-transfer.md); set `APP_URL` to the public address first so the links it prints are right), everyone sees the demo and the owner cannot log in.
-- **The demo is its own user.** Its data is whatever was copied into it; visitors can edit it.
+- **The demo is its own user, and it starts empty.** Its data is whatever the owner copies into it (Admin → Demo → Copy my data to the demo); visitors can edit it, and the next copy replaces their edits. After the first deploy, log in as the owner and copy once, or visitors see an empty app.
 
 ## Postgres
 

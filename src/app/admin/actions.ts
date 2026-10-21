@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { appOrigin, linkTo } from '@/lib/app-url';
 import { createInvite, createPasswordReset } from '@/lib/auth/accounts';
+import { DEMO_USER_ID } from '@/lib/constants';
+import { copyUserData, type CopyCounts } from '@/lib/demo-copy';
 import { requireAdmin } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 
@@ -80,4 +82,23 @@ export async function deleteLocation(locationId: string): Promise<void> {
   if (!Id.safeParse(locationId).success) return;
   await prisma.pokemonLocation.deleteMany({ where: { id: locationId } });
   revalidatePath('/admin');
+}
+
+export type CopyResult = { counts?: CopyCounts; error?: 'failed' };
+
+/**
+ * Replaces everything in the demo with a copy of the admin's data (see copyUserData). Visitors' edits to the demo
+ * are lost, which is why the page asks first. All or nothing: if it fails, the demo stays as it was.
+ */
+export async function copyToDemo(): Promise<CopyResult> {
+  const admin = await requireAdmin();
+  if (admin.id === DEMO_USER_ID) return { error: 'failed' };
+  try {
+    const counts = await copyUserData(admin.id, DEMO_USER_ID);
+    revalidatePath('/admin');
+    return { counts };
+  } catch (error) {
+    console.error('Copying to the demo failed:', error);
+    return { error: 'failed' };
+  }
 }

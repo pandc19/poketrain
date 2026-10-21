@@ -88,7 +88,8 @@ async function cached<Raw, T = Raw>(
 ): Promise<T> {
   const model = provider.modelFor(request.tier);
   const inputHash = hashOf(model, input, key.version);
-  const where = { kind_provider_inputHash: { kind: key.kind, provider: provider.name, inputHash } };
+  // Per profile: a copy of a profile (the demo's) keeps its own rows rather than sharing the original's.
+  const where = { profileId_kind_provider_inputHash: { profileId: key.profileId, kind: key.kind, provider: provider.name, inputHash } };
 
   if (!key.refresh) {
     const hit = await prisma.aiAudit.findUnique({ where });
