@@ -455,7 +455,7 @@ const RULE_ITEMS = ['focus-sash', 'choice-band', 'choice-specs', 'life-orb', 'le
 export async function quickAudit(game: GameConfig, lang: Lang, profileId: string, p: RosterView) {
   const final = p.finalSpecies;
   const baseStats = final?.baseStats ?? p.baseStats;
-  if (!baseStats) throw new AiError('There is not enough data on this Pokémon to suggest a build.');
+  if (!baseStats) throw new AiError('There is not enough data on this Pokémon to suggest how to set it up.');
 
   return auditBuild(RULES_SOURCE, game, lang, profileId, p, true, false, async ({ pool, ask, fixedMoves, freeEvs }) => {
     const [natures, itemRows, chart] = await Promise.all([

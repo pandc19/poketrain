@@ -29,7 +29,7 @@ export function AiHelp({ kind }: { kind: AiKind }) {
     <HelpTip>
       {kind === 'audit' ? (
         <>
-          <p>{t('Asks the AI for a build: a held item, four moves it can learn, an EV plan, a nature or Mint and a Tera type, each with a reason.')}</p>
+          <p>{t('Asks the AI how to set this Pokémon up: a held item, four moves it can learn, an EV plan, a nature or Mint and a Tera type, each with a reason.')}</p>
           <p>{t('Parts you have fixed stay as they are. The answer is saved on this Pokémon.')}</p>
           <p>{t('It uses your own AI key. The quick audit does the same from game data, with no AI.')}</p>
         </>
