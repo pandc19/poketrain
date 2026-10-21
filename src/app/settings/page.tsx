@@ -2,11 +2,14 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AiKeyForm } from '@/components/auth/AiKeyForm';
 import { NameForm } from '@/components/auth/NameForm';
+import { MyGames } from '@/components/games/MyGames';
 import { removeAiSettings } from '@/app/settings/actions';
 import { DEFAULT_MODELS, type ProviderName } from '@/lib/ai/models';
 import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
+import { GAMES } from '@/lib/games';
 import { getT } from '@/lib/i18n';
+import { gameDataOf } from '@/lib/my-games';
 import { canStoreSecrets } from '@/lib/secret-box';
 
 export default async function SettingsPage() {
@@ -15,6 +18,10 @@ export default async function SettingsPage() {
   const row = await prisma.user.findUniqueOrThrow({
     where: { id: user.id },
     select: { aiProvider: true, aiKeyHint: true, aiKeyEncrypted: true, aiWorkspaceId: true, aiModel: true },
+  });
+  const games = (await gameDataOf(user.id)).map((d) => {
+    const g = GAMES.find((x) => x.id === d.gameId)!;
+    return { ...d, id: g.id, name: g.name, shortName: g.shortName };
   });
   const provider: ProviderName = row.aiProvider === 'openai' ? 'openai' : 'claude';
   const providerName = provider === 'openai' ? 'OpenAI' : 'Anthropic';
@@ -32,6 +39,11 @@ export default async function SettingsPage() {
         <div className="mt-4">
           <NameForm current={user.name} />
         </div>
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="section-title">{t('My games')}</h2>
+        <MyGames games={games} />
       </section>
 
       <section className="rounded-xl border border-line bg-surface p-5">
