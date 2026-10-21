@@ -11,7 +11,7 @@ async function main() {
   await prisma.user.upsert({
     where: { id: LOCAL_USER_ID },
     update: {},
-    create: { id: LOCAL_USER_ID, name: 'Trainer', role: 'ADMIN', aiEnabled: true },
+    create: { id: LOCAL_USER_ID, name: 'Trainer', role: 'ADMIN' },
   });
   await prisma.user.upsert({
     where: { id: DEMO_USER_ID },

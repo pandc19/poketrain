@@ -25,7 +25,7 @@ const chakraPetch = Chakra_Petch({
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getT();
   return {
-    title: "Poké Train",
+    title: "PokéTrain",
     description: t("Pokédex progress and trained roster tracker"),
   };
 }

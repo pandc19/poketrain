@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { WORKSPACE_MESSAGE } from '../messages';
-import { claudeModels, claudeWebSearchTool } from '../models';
+import { claudeWebSearchTool, modelsFor } from '../models';
 import { AiError, type AiProvider, type GenerateRequest, type ModelTier } from '../types';
 
 // Web search runs in a server-side loop that can pause; bound how often we resume it.
@@ -9,16 +9,21 @@ const MAX_RESUMES = 4;
 
 export class ClaudeProvider implements AiProvider {
   readonly name = 'claude' as const;
-  private readonly models = claudeModels();
+  private readonly models: ReturnType<typeof modelsFor>;
   private client: Anthropic;
+  private readonly hasWorkspace: boolean;
 
-  constructor() {
-    // A key that isn't scoped to a workspace is rejected unless the request
-    // names one. Omitted when unset, so scoped keys keep working as before.
-    const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
-    this.client = new Anthropic(
-      workspaceId ? { defaultHeaders: { 'anthropic-workspace-id': workspaceId } } : undefined
-    );
+  /**
+   * Everything comes from the user's settings. A key that is not scoped to a workspace is rejected unless the
+   * request names one, so the workspace id is sent only when they gave one.
+   */
+  constructor(options: { apiKey: string; workspaceId?: string | null; model?: string | null }) {
+    this.models = modelsFor('claude', options.model);
+    this.hasWorkspace = Boolean(options.workspaceId);
+    this.client = new Anthropic({
+      apiKey: options.apiKey,
+      ...(options.workspaceId ? { defaultHeaders: { 'anthropic-workspace-id': options.workspaceId } } : {}),
+    });
   }
 
   modelFor(tier: ModelTier) {
@@ -50,12 +55,13 @@ export class ClaudeProvider implements AiProvider {
         return response.parsed_output as T;
       }
     } catch (error) {
-      if (error instanceof Anthropic.AuthenticationError) throw new AiError('ANTHROPIC_API_KEY was rejected. Check .env.local.');
+      if (error instanceof Anthropic.AuthenticationError) throw new AiError('Your Anthropic API key was rejected. Check it in Settings.');
       if (error instanceof Anthropic.RateLimitError) throw new AiError('Claude rate limit reached. Try again later.');
       if (error instanceof Anthropic.APIError) {
         // The SDK's message is "400 {json}"; the readable part is nested inside.
         const detail = (error.error as { error?: { message?: string } } | undefined)?.error?.message ?? error.message;
         if (detail.includes('anthropic-workspace-id')) {
+          if (this.hasWorkspace) throw new AiError('Anthropic did not accept the workspace id. Check it in Settings.');
           throw new AiError(WORKSPACE_MESSAGE);
         }
         throw new AiError('Claude error {status}: {detail}', { status: error.status ?? '', detail });

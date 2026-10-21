@@ -230,15 +230,22 @@ enum UserRole {
 }
 
 model User {
-  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  name         String
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name           String
   /// Lower case. Null for the demo user, which nobody logs in as.
-  email        String?  @unique
-  passwordHash String?  @map("password_hash")
-  role         UserRole @default(USER)
-  /// Can use the AI features (the admin switches it on per user).
-  aiEnabled    Boolean  @default(false) @map("ai_enabled")
-  createdAt    DateTime @default(now()) @map("created_at")
+  email          String?  @unique
+  passwordHash   String?  @map("password_hash")
+  role           UserRole @default(USER)
+  /// The user's own AI settings. The AI is paid by whoever set it up, and the server holds no AI key of its own.
+  /// The provider ('claude' or 'openai'); the key, encrypted (see src/lib/secret-box.ts) with its last four
+  /// characters to show which one it is; an Anthropic workspace id when their key needs one; and a model to use
+  /// instead of the provider's default. All null when there is no AI.
+  aiProvider     String?  @map("ai_provider")
+  aiKeyEncrypted String?  @map("ai_key_encrypted")
+  aiKeyHint      String?  @map("ai_key_hint")
+  aiWorkspaceId  String?  @map("ai_workspace_id")
+  aiModel        String?  @map("ai_model")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   profiles       GameProfile[]
   locations      PokemonLocation[]

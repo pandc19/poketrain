@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
@@ -577,9 +578,10 @@ export function RosterBoard({
 
       {view === 'list' && !aiEnabled && (
         <p className="mb-3 text-xs text-muted">
-          {t(
-            'AI audits are off: no API key is configured. The quick audit and the move legality checks still run, since they use game data rather than AI.'
-          )}
+          {t('AI audits are off. The quick audit and the move legality checks work without it, since they use game data rather than AI.')}{' '}
+          <Link href="/settings" className="underline underline-offset-2 hover:text-ink">
+            {t('Add your AI key in Settings')}
+          </Link>
         </p>
       )}
       {error && (

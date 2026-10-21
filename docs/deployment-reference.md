@@ -1,4 +1,4 @@
-# Poké Train Deployment Reference
+# PokéTrain Deployment Reference
 
 Last updated: 2026-10-18
 
@@ -57,11 +57,7 @@ All are **runtime** variables. Untick "Available at Buildtime" on the secrets: C
 | Variable | Notes |
 |---|---|
 | `DATABASE_URL` | `postgresql://poketrain_app:<password>@<postgres-internal-host>:5432/poketrain`. No `sslmode` and no `schema` parameter. Percent-encode special characters in the password |
-| `AI_PROVIDER` | `claude` or `openai` |
-| `ANTHROPIC_API_KEY` | secret |
-| `ANTHROPIC_WORKSPACE_ID` | |
-| `CLAUDE_MODEL` | |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | only if `AI_PROVIDER=openai` |
+| `ENCRYPTION_SECRET` | secret. 32 random bytes in base64 (`openssl rand -base64 32`). Encrypts the AI keys people save in Settings. **Required for any AI**: the app has no AI key of its own, and the owner sets theirs up in Settings like everyone else. Without it Settings cannot save keys. If it changes, saved keys become unreadable and people add them again, so keep it |
 
 `PORT=3000` and `HOSTNAME=0.0.0.0` are set in the image. The names mirror [.env.local.example](../.env.local.example); keep the two in sync when a variable is added.
 

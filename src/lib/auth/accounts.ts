@@ -17,10 +17,9 @@ export type SessionUser = {
   name: string;
   email: string | null;
   role: 'ADMIN' | 'USER';
-  aiEnabled: boolean;
 };
 
-const userSelect = { id: true, name: true, email: true, role: true, aiEnabled: true } as const;
+const userSelect = { id: true, name: true, email: true, role: true } as const;
 
 /** Emails are compared in lower case. */
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();

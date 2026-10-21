@@ -48,7 +48,7 @@ async function admin() {
   const owner = await prisma.user.findUnique({ where: { id: LOCAL_USER_ID }, select: { id: true } });
   if (!owner) throw new Error('The owner does not exist yet: run the migrations (and `npm run db:seed` on a new database) first.');
   await setCredentials(owner.id, email, password);
-  await prisma.user.update({ where: { id: owner.id }, data: { role: 'ADMIN', aiEnabled: true } });
+  await prisma.user.update({ where: { id: owner.id }, data: { role: 'ADMIN' } });
   console.log(`Done. Log in at ${appUrl}/login as ${email}.`);
 }
 
@@ -84,9 +84,9 @@ async function reset(args: string[]) {
 }
 
 async function users() {
-  const rows = await prisma.user.findMany({ orderBy: { createdAt: 'asc' }, select: { name: true, email: true, role: true, aiEnabled: true, createdAt: true, _count: { select: { sessions: true } } } });
+  const rows = await prisma.user.findMany({ orderBy: { createdAt: 'asc' }, select: { name: true, email: true, role: true, aiProvider: true, createdAt: true, _count: { select: { sessions: true } } } });
   for (const u of rows) {
-    console.log(`${u.role.padEnd(5)} ${(u.email ?? '(no login)').padEnd(34)} ${u.name.padEnd(16)} AI ${u.aiEnabled ? 'on ' : 'off'}  logins ${u._count.sessions}  since ${u.createdAt.toISOString().slice(0, 10)}`);
+    console.log(`${u.role.padEnd(5)} ${(u.email ?? '(no login)').padEnd(34)} ${u.name.padEnd(16)} AI ${(u.aiProvider ?? 'off').padEnd(6)} logins ${u._count.sessions}  since ${u.createdAt.toISOString().slice(0, 10)}`);
   }
 }
 

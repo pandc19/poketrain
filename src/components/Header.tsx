@@ -194,9 +194,9 @@ export function Header({ games, user }: { games: GameLink[]; user: HeaderUser })
             </Link>
           ) : (
             <div className="flex items-center gap-2 text-xs text-white/90">
-              <span className="hidden max-w-32 truncate sm:inline" title={user.name}>
+              <Link href="/settings" className="hidden max-w-32 truncate hover:underline sm:inline" title={t('Settings')}>
                 {user.name}
-              </span>
+              </Link>
               <form action={logout}>
                 <button type="submit" className="rounded-md bg-black/20 px-3 py-1.5 font-display font-semibold text-white hover:bg-black/30">
                   {t('Log out')}

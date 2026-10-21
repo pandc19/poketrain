@@ -1,25 +1,26 @@
 /**
- * Which model answers which kind of request, configured the same way as
- * taxap: a cheaper "bulk" model for everyday requests and a stronger
- * "escalation" model for the harder ones. The old single-model variables
- * (CLAUDE_MODEL, OPENAI_MODEL) still work as a fallback for both.
+ * Which model answers which kind of request: a cheaper "bulk" model for everyday requests and a stronger "deep"
+ * one for the harder ones. Nothing is read from the environment: a user can choose one model in Settings, which
+ * then answers everything; without a choice each provider uses its own pair below.
  */
 export type ModelTier = 'bulk' | 'deep';
+export type ProviderName = 'claude' | 'openai';
 
-type Env = Record<string, string | undefined>;
+export const DEFAULT_MODELS: Record<ProviderName, Record<ModelTier, string>> = {
+  claude: { bulk: 'claude-sonnet-5-5', deep: 'claude-opus-5-5' },
+  openai: { bulk: 'gpt-4o-mini', deep: 'gpt-4o' },
+};
 
-export function claudeModels(env: Env = process.env): Record<ModelTier, string> {
-  return {
-    bulk: env.CLAUDE_BULK_MODEL || env.CLAUDE_MODEL || 'claude-sonnet-5-5',
-    deep: env.CLAUDE_ESCALATION_MODEL || env.CLAUDE_MODEL || 'claude-opus-5-5',
-  };
-}
+/** Models Settings suggests while typing; any model the provider offers can be typed instead. */
+export const SUGGESTED_MODELS: Record<ProviderName, string[]> = {
+  claude: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'],
+  openai: ['gpt-4o-mini', 'gpt-4o'],
+};
 
-export function openAiModels(env: Env = process.env): Record<ModelTier, string> {
-  return {
-    bulk: env.OPENAI_BULK_MODEL || env.OPENAI_MODEL || 'gpt-4o-mini',
-    deep: env.OPENAI_ESCALATION_MODEL || env.OPENAI_MODEL || 'gpt-4o',
-  };
+/** The model for each kind of request: the one the user chose for all of them, or else the provider's pair. */
+export function modelsFor(provider: ProviderName, chosen?: string | null): Record<ModelTier, string> {
+  const model = chosen?.trim();
+  return model ? { bulk: model, deep: model } : DEFAULT_MODELS[provider];
 }
 
 /** Models that support Claude's newer web search tool (with dynamic filtering). */
