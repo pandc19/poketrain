@@ -2,8 +2,32 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { PickerGame } from '@/lib/landing';
+import { ArchiveIcon, CheckIcon, CopyIcon, EggIcon } from '@/components/ActionIcons';
+import { KeeperIcon, TrainingIcon } from '@/components/KeeperIcon';
+import { PokeBallIcon } from '@/components/PokeBallIcon';
+import type { FeatureKey, PickerGame } from '@/lib/landing';
 import { useT } from '@/lib/translate-client';
+
+/** The little picture beside each thing the app does for a game. The same ones the app uses for those things. */
+function FeatureIcon({ kind }: { kind: FeatureKey }) {
+  switch (kind) {
+    case 'breeding':
+      return <EggIcon size={14} />;
+    case 'evs':
+      return <TrainingIcon size={14} />;
+    case 'items':
+      return <ArchiveIcon size={14} />;
+    case 'tera':
+      // The gem the app draws for a Tera type, in the page's accent.
+      return <span aria-hidden className="tera-gem block h-2.5 w-2.5 rotate-45 rounded-[2px]" style={{ backgroundColor: 'currentColor' }} />;
+    case 'raids':
+      return <KeeperIcon size={14} />;
+    case 'picnic':
+      return <CopyIcon size={14} />;
+    case 'judge':
+      return <CheckIcon size={14} />;
+  }
+}
 
 /**
  * The Pokédex as a device, with the games as cartridges to slide in. Picking one re-tints the whole page the way
@@ -11,7 +35,7 @@ import { useT } from '@/lib/translate-client';
  * and the screen shows what the app does for that game, read from the game config.
  */
 export function GamePicker({ games }: { games: PickerGame[] }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const [selected, setSelected] = useState(games[0].id);
   const game = games.find((g) => g.id === selected) ?? games[0];
 
@@ -43,28 +67,62 @@ export function GamePicker({ games }: { games: PickerGame[] }) {
         </span>
       </div>
 
-      {/* The screen: what the app does for the game in the slot. */}
-      <div aria-live="polite" className="rounded-xl bg-bg p-4 text-ink sm:p-5" style={{ boxShadow: 'var(--screen-inset)' }}>
-        <h2 className="font-display text-3xl font-bold leading-tight tracking-tight">{game.name}</h2>
-        <p className="mt-0.5 text-sm text-muted">{game.generation}</p>
+      {/* The screen: what the app does for the game in the slot. A glare and faint scan lines make it glass. */}
+      <div aria-live="polite" className="relative overflow-hidden rounded-xl bg-bg p-4 text-ink ring-1 ring-black/25 sm:p-5" style={{ boxShadow: 'var(--screen-inset)' }}>
+        <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(125deg, rgb(255 255 255 / 0.07), transparent 38%)' }} />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.03]"
+          style={{ background: 'repeating-linear-gradient(0deg, currentColor 0 1px, transparent 1px 4px)' }}
+        />
 
-        <ul className="mt-4 divide-y divide-line text-sm">
-          {game.pokedexes.map((d) => (
-            <li key={d.name} className="flex flex-wrap items-baseline justify-between gap-x-4 py-1.5">
-              <span className="readout font-semibold">{d.name}</span>
-              <span className="text-muted">{d.note}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="relative">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-display text-3xl font-bold leading-tight tracking-tight">{game.name}</h2>
+            <span className="mt-1.5 shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-medium text-muted">{game.generation}</span>
+          </div>
 
-        <p className="mt-4 text-sm leading-relaxed">
-          {t('Covers {list}.', { list: new Intl.ListFormat(lang, { style: 'long', type: 'conjunction' }).format(game.features) })}
-        </p>
-        {game.versions && <p className="mt-2 text-sm leading-relaxed text-muted">{game.versions}</p>}
+          {/* Each Pokédex of the game: where it comes from, and how many Pokémon are in it. */}
+          <ul className="mt-4 divide-y divide-line">
+            {game.pokedexes.map((d) => (
+              <li key={d.name} className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 py-2.5">
+                <span className="text-muted">
+                  <PokeBallIcon caught={false} size={20} />
+                </span>
+                <span className="min-w-0">
+                  <span className="readout block font-semibold leading-tight">{d.name}</span>
+                  <span className="block text-xs text-muted">{d.note}</span>
+                </span>
+                {d.size !== null && (
+                  <span className="text-right leading-tight">
+                    <span className="readout block text-xl font-bold">{d.size}</span>
+                    <span className="block text-[11px] text-muted">{t('Pokémon')}</span>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
 
-        <Link href={`/${game.id}/pokedex`} className="mt-4 inline-block text-sm font-semibold text-game underline underline-offset-4 hover:text-ink">
-          {t('Open the {game} demo', { game: game.shortName })}
-        </Link>
+          <ul className="mt-4 flex flex-wrap gap-1.5">
+            {game.features.map((f) => (
+              <li key={f.key} className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 py-1 pl-2 pr-2.5 text-xs font-medium">
+                <span className="text-game">
+                  <FeatureIcon kind={f.key} />
+                </span>
+                {f.label}
+              </li>
+            ))}
+          </ul>
+
+          {game.versions && <p className="mt-3 text-sm leading-relaxed text-muted">{game.versions}</p>}
+
+          <Link
+            href={`/${game.id}/pokedex`}
+            className="mt-4 inline-flex rounded-md border border-line px-4 py-2 text-sm font-semibold text-game hover:bg-surface-2"
+          >
+            {t('Open the {game} demo', { game: game.shortName })}
+          </Link>
+        </div>
       </div>
 
       {/* The slot. The cartridge in use sits higher; they are radio buttons, so the arrow keys and a screen reader work. */}

@@ -11,16 +11,29 @@ describe('the games the landing page shows', () => {
     expect(en[0]).toMatchObject({ name: 'Pokémon Violet', shortName: 'Violet', generation: 'Generation IX' });
   });
 
-  it('list each Pokédex of the game with where it comes from', () => {
-    expect(en[0].pokedexes).toEqual([
-      { name: 'Paldea', note: 'Base game' },
-      { name: 'Kitakami', note: 'DLC: The Teal Mask' },
-      { name: 'Blueberry', note: 'DLC: The Indigo Disk' },
+  it('list each Pokédex of the game with where it comes from and how big it is', () => {
+    const sizes = new Map([['paldea', 400], ['kitakami', 200], ['blueberry', 240]]);
+    expect(pickerGames('en', makeT('en'), sizes)[0].pokedexes).toEqual([
+      { name: 'Paldea', note: 'Base game', size: 400 },
+      { name: 'Kitakami', note: 'DLC: The Teal Mask', size: 200 },
+      { name: 'Blueberry', note: 'DLC: The Indigo Disk', size: 240 },
     ]);
   });
 
-  it('say what the game has, from its features', () => {
-    expect(en[0].features).toEqual(['breeding plans', 'EV training', 'held items', 'Tera types', 'Tera raids', 'egg moves with the Mirror Herb', 'the Judge’s IV ratings']);
+  it('leave a size out when the database does not know it, instead of guessing', () => {
+    expect(en[0].pokedexes.map((d) => d.size)).toEqual([null, null, null]);
+  });
+
+  it('say what the game has, from its features, each with a picture to draw', () => {
+    expect(en[0].features).toEqual([
+      { key: 'breeding', label: 'Breeding plans' },
+      { key: 'evs', label: 'EV training' },
+      { key: 'items', label: 'Held items' },
+      { key: 'tera', label: 'Tera types' },
+      { key: 'raids', label: 'Tera raids' },
+      { key: 'picnic', label: 'Mirror Herb egg moves' },
+      { key: 'judge', label: 'Judge’s IV ratings' },
+    ]);
   });
 
   it('tell a pair’s versions apart: each game names itself first', () => {
@@ -36,9 +49,7 @@ describe('the games the landing page shows', () => {
 
   it('come out in Spanish', () => {
     expect(es[0].generation).toBe('Generación IX');
-    expect(es[0].pokedexes[1]).toEqual({ name: 'Noroteo', note: 'DLC: La Máscara Turquesa' });
-    expect(es[0].features[0]).toBe('planes de cría');
-    // Words that only start with a capital because they were headings are lower case inside the sentence.
-    expect(es[0].features).toEqual(['planes de cría', 'entrenamiento de EVs', 'objetos equipados', 'teratipos', 'teraincursiones', 'movimientos huevo con la Hierba Espejo', 'las valoraciones de IVs del Juez']);
+    expect(es[0].pokedexes[1]).toMatchObject({ name: 'Noroteo', note: 'DLC: La Máscara Turquesa' });
+    expect(es[0].features.map((f) => f.label)).toEqual(['Planes de cría', 'Entrenamiento de EVs', 'Objetos equipados', 'Teratipos', 'Teraincursiones', 'Movimientos huevo con la Hierba Espejo', 'Valoración de IVs del Juez']);
   });
 });

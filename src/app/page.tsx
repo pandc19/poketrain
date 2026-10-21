@@ -8,6 +8,7 @@ import { getUser } from '@/lib/current-user';
 import { GAMES } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { pickerGames } from '@/lib/landing';
+import { pokedexSizes } from '@/lib/landing-data';
 
 // Games on the way. They are named here, not in the game config, because they have no config yet.
 const COMING_NEXT = ['Legends: Z-A', 'Brilliant Diamond / Shining Pearl', 'Sword / Shield'];
@@ -73,7 +74,7 @@ export default async function Home() {
           </p>
         </div>
 
-        <GamePicker games={pickerGames(lang, t)} />
+        <GamePicker games={pickerGames(lang, t, await pokedexSizes())} />
       </section>
 
       {/* ---------- what it does ---------- */}
