@@ -12,6 +12,7 @@ import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { clear, isLimited, record, take } from '@/lib/auth/rate-limit';
 import { endSession, startSession } from '@/lib/auth/session';
 import { clientAddress } from '@/lib/client-address';
+import { TRAP_FIELD } from '@/lib/trap';
 
 /**
  * What a form shows after it was sent. Errors are short codes, not text: the form turns them into words in
@@ -28,7 +29,8 @@ export type AuthErrorCode =
   | 'invite'
   | 'email-mismatch'
   | 'email-taken'
-  | 'link';
+  | 'link'
+  | 'blocked';
 
 export type AuthState = {
   error?: AuthErrorCode;
@@ -75,8 +77,12 @@ export async function logout(): Promise<void> {
 // ---- asking for an invite ---------------------------------------------------------------------------------
 
 export async function requestInvite(_state: AuthState, formData: FormData): Promise<AuthState> {
-  // A field people cannot see: a bot fills it in. It is told the request was taken, so it does not try again.
-  if (field(formData, 'website')) return { done: true };
+  // A field people cannot see: a bot fills it in. The sender is told it did not go through (not that it worked): if
+  // a real person's browser ever fills it, they know to try again, and the log says what happened.
+  if (field(formData, TRAP_FIELD)) {
+    console.warn('Invite request form: the hidden field was filled in, so the request was not stored.');
+    return { error: 'blocked' };
+  }
 
   const name = field(formData, 'name').trim().slice(0, 100);
   const email = field(formData, 'email').trim().toLowerCase();

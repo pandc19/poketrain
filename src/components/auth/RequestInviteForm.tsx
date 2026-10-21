@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { requestInvite } from '@/app/auth/actions';
+import { TRAP_FIELD } from '@/lib/trap';
 import { useT } from '@/lib/translate-client';
 import { AuthError, Field, SubmitButton } from './parts';
 
@@ -34,8 +35,8 @@ export function RequestInviteForm() {
       {/* A field for bots: people never see it, so anything typed in it means the form was filled in by a program. */}
       <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
         <label>
-          Website
-          <input name="website" tabIndex={-1} autoComplete="off" />
+          Leave this empty
+          <input name={TRAP_FIELD} tabIndex={-1} autoComplete="off" />
         </label>
       </div>
       <SubmitButton pending={pending}>{pending ? t('Sending…') : t('Request an invite')}</SubmitButton>
