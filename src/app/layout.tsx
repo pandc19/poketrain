@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, Figtree } from "next/font/google";
 import "./globals.css";
+import { AiAccessProvider } from "@/components/AiAccess";
 import { Header } from "@/components/Header";
+import { canUseAi } from "@/lib/ai/user-provider";
 import { getUser } from "@/lib/current-user";
 import { prisma } from "@/lib/db";
 import { GAMES } from "@/lib/games";
@@ -32,6 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const [lang, theme, user] = await Promise.all([getLang(), getTheme(), getUser()]);
+  const aiEnabled = await canUseAi(user);
   // Item names come from the game data when it has them, so what the catalog says to search
   // for is what the game really calls the item (the names written in the catalog are a fallback).
   const slugs = [...new Set(GAMES.flatMap((g) => g.catalog.flatMap((s) => s.entries.map((e) => e.item ?? e.sprite ?? ""))))].filter(Boolean);
@@ -67,7 +70,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               })),
             }))}
           />
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
+          <AiAccessProvider value={{ enabled: aiEnabled, demo: user.isDemo }}>
+            <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
+          </AiAccessProvider>
         </LangProvider>
       </body>
     </html>

@@ -1,8 +1,6 @@
 import { HelpTip } from '@/components/HelpTip';
 import { RosterBoard } from '@/components/RosterBoard';
-import { canUseAi } from '@/lib/ai/user-provider';
 import { gameHasMints } from '@/lib/audit-ask';
-import { getUser } from '@/lib/current-user';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadEditorOptions, loadRoster } from '@/lib/roster';
@@ -20,7 +18,6 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
     getLang(),
     getT(),
   ]);
-  const aiEnabled = await canUseAi(await getUser());
 
   return (
     <div>
@@ -53,7 +50,6 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
         mints={gameHasMints(game)}
         breeding={game.features.breeding}
         accent={'var(--game-accent)'}
-        aiEnabled={aiEnabled}
       />
     </div>
   );

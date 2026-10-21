@@ -35,7 +35,7 @@ export default async function SettingsPage() {
       <section className="rounded-xl border border-line bg-surface p-5">
         <h2 className="section-title">{t('AI')}</h2>
         <p className="mt-2 text-sm text-muted">
-          {t('The AI can write a build audit for a Pokémon and look up where to catch one. Everything else, including the quick audit, works without it.')}
+          {t('The AI can review a Pokémon and suggest its held item, moves, EVs, nature and Tera type, and look up where to catch one. Everything else, including the quick audit, works without it.')}
         </p>
         <p className="mt-2 text-sm text-muted">
           {t('It uses your own API key, from Anthropic or OpenAI. The provider charges you for what you ask; PokéTrain charges nothing.')}

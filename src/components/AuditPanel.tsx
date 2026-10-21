@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useCachedLocations } from './useCachedLocations';
 import { createContext, useContext } from 'react';
+import { DemoAiNote } from './AiAccess';
 import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
 import { SourceRow, filterSources, type EvSource } from './EvSources';
@@ -19,12 +20,10 @@ type StoredAudit = Partial<BuildAudit>;
 function SourceGroup({
   group,
   gameId,
-  aiEnabled,
   saved,
 }: {
   group: NonNullable<BuildAudit['evPlan']['sources']>[number];
   gameId?: string;
-  aiEnabled?: boolean;
   saved: Record<number, LocationResult>;
 }) {
   const { t } = useT();
@@ -62,7 +61,7 @@ function SourceGroup({
       {all.error && <p className="text-pending">{all.error}</p>}
       <ul className="list-disc space-y-1 pl-4">
         {group.species.map((sp) => (
-          <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} known={known[sp.id]} />
+          <SourceRow key={sp.id} s={sp} gameId={gameId} known={known[sp.id]} />
         ))}
       </ul>
       <Dialog
@@ -78,7 +77,7 @@ function SourceGroup({
         )}
         <div className="grid gap-2 text-xs sm:grid-cols-2">
           {filterSources(all.species ?? [], query).map((sp) => (
-            <SourceRow key={sp.id} s={sp} gameId={gameId} aiEnabled={aiEnabled} known={known[sp.id]} card />
+            <SourceRow key={sp.id} s={sp} gameId={gameId} known={known[sp.id]} card />
           ))}
         </div>
       </Dialog>
@@ -138,7 +137,6 @@ function Box({
 /** Shows a stored AI audit of one Pokémon. */
 export function AuditPanel({
   gameId,
-  aiEnabled,
   locks,
   onLocksChange,
   compare,
@@ -159,7 +157,6 @@ export function AuditPanel({
 }: {
   /** Lets the Pokémon to battle be looked up. */
   gameId?: string;
-  aiEnabled?: boolean;
   /** The held item and moves the player has fixed. */
   locks?: AuditLocks | null;
   onLocksChange?: (locks: AuditLocks | null) => void;
@@ -328,7 +325,7 @@ export function AuditPanel({
             </ul>
           )}
           {(audit.evPlan.sources ?? []).map((group) => (
-            <SourceGroup key={group.stat} group={group} gameId={gameId} aiEnabled={aiEnabled} saved={saved} />
+            <SourceGroup key={group.stat} group={group} gameId={gameId} saved={saved} />
           ))}
           {(audit.evPlan.steps ?? []).length > 0 && !audit.evPlan.sources && (
             <ul className="mt-1 list-disc space-y-1 pl-4">
@@ -422,6 +419,7 @@ export function AuditPanel({
             : t('AI-generated ({meta}). Check locations in game before relying on them.', { meta })}
         {auditLang && ` · ${languageName(auditLang)}`}
       </p>
+      {madeBy === 'ai' && <DemoAiNote />}
     </div>
     </MadeByAi.Provider>
   );

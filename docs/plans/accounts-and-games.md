@@ -107,7 +107,14 @@ Free, instant, for everyone including the demo. Same result shape as the AI audi
 - `/api/ai/*` answer 403 without AI. The roster and breeding pages pass `aiEnabled` per user, and the AI buttons stay hidden without it.
 - A key is AES-256-GCM encrypted with `ENCRYPTION_SECRET`, with the user's id as authenticated data (a copied blob does not decrypt); the provider and the last four characters are kept beside it. On save the key, the workspace and the model are checked with the provider's free calls (list models, retrieve the model), never returned to the browser, never logged. A key that cannot be decrypted counts as no key. With the key left empty only the other settings change.
 - `/settings`: the account, and the AI form (provider, key, workspace, model; remove).
-- The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up. Still for PR 8: the hints on what each AI action does, and the demo's "AI is not available in the demo" label.
+- The admin page (PR 9) therefore has no "AI on/off per user"; it only lists whether each user has AI set up.
+
+### As built in PR 8
+
+- One context (`AiAccessProvider`, from the layout) says whether this person can use AI and whether they are in the demo; it replaces the `aiEnabled` prop that was passed through six components.
+- Each AI action has a help tip (`AiHelp`): the audit says what it suggests, that fixed parts stay and that the answer is saved on the Pokémon; the location lookup says what it finds, that the answer is saved for everyone and that searching again replaces it. Both say they use the person's own key, and the audit's names the quick audit as the free alternative.
+- Where the AI is not available, a line takes the place of the button (`AiUnavailable`), with the same tip: in the demo, "AI is not available in the demo. Log in and add your own API key to run it."; for a logged-in user, "AI is off." with a link to Settings. The list-level notice on the roster is gone.
+- Answers the AI wrote earlier still show in the demo, with a note under them (`DemoAiNote`) that visitors cannot run the AI.
 
 ## Admin config page (`/admin`)
 
