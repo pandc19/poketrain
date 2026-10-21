@@ -1,4 +1,4 @@
-# Poké Train
+# PokéTrain
 
 Track Pokédex progress and a trained competitive roster across Pokémon games. Games so far: **Pokémon Scarlet** and **Pokémon Violet**.
 
@@ -93,7 +93,7 @@ Anyone who is not logged in uses the shared **demo** (its own copy of the data, 
 2. **Invite someone.** `npm run accounts -- requests` lists who asked; `npm run accounts -- invite --request <id>` (or `invite someone@example.com`) prints a link that works once.
 3. **A forgotten password.** `npm run accounts -- reset someone@example.com` prints a link, good once and for a day, that also logs that person out everywhere.
 
-**AI is the user's own.** Nobody gets AI by default: the demo and new accounts have none, and the AI buttons stay hidden. Everyone, the owner included, sets up their own provider, key, workspace and model in **Settings** (see [Environment variables](#environment-variables)), so the provider charges them and Poké Train charges nothing. Everything that is not the build audit or the location lookup works without AI, including the quick audit.
+**AI is the user's own.** Nobody gets AI by default: the demo and new accounts have none, and the AI buttons stay hidden. Everyone, the owner included, sets up their own provider, key, workspace and model in **Settings** (see [Environment variables](#environment-variables)), so the provider charges them and PokéTrain charges nothing. Everything that is not the build audit or the location lookup works without AI, including the quick audit.
 
 Logins never expire: they end when the person logs out. Passwords are hashed with scrypt, invite and reset links and login tokens are stored only as hashes, and the login and request forms limit repeated attempts. `npm run accounts -- users` lists the accounts. Set `APP_URL` so the links point at the right address.
 

@@ -10,7 +10,7 @@ export default async function RequestInvitePage() {
   return (
     <AuthCard
       title={t('Request an invite')}
-      intro={t('Poké Train is a free-time project, so accounts are by invitation. Leave your details and you will get a link to create yours.')}
+      intro={t('PokéTrain is a free-time project, so accounts are by invitation. Leave your details and you will get a link to create yours.')}
       footer={
         <>
           <CardLink href="/login">{t('I already have an account')}</CardLink>

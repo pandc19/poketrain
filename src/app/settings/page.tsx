@@ -38,7 +38,7 @@ export default async function SettingsPage() {
           {t('The AI can write a build audit for a Pokémon and look up where to catch one. Everything else, including the quick audit, works without it.')}
         </p>
         <p className="mt-2 text-sm text-muted">
-          {t('It uses your own API key, from Anthropic or OpenAI. The provider charges you for what you ask; Poké Train charges nothing.')}
+          {t('It uses your own API key, from Anthropic or OpenAI. The provider charges you for what you ask; PokéTrain charges nothing.')}
         </p>
 
         <div className="mt-4 rounded-md bg-surface-2 px-3 py-2.5 text-sm">

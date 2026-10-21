@@ -1,4 +1,4 @@
-# Poké Train Deployment Reference
+# PokéTrain Deployment Reference
 
 Last updated: 2026-10-18
 

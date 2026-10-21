@@ -28,7 +28,7 @@ New pages: `/login`, `/request-invite` (name, email, optional "what games do you
 
 Built on the app's device and cartridge look, in English and Spanish.
 
-> **Poké Train**
+> **PokéTrain**
 > A side project from someone who loves Pokémon games, built to keep a playthrough organised: what you've caught, who you're training, what to breed next, and what's still left to beat. All in one place, instead of a dozen spreadsheets and browser tabs.
 >
 > [Try the demo] [Log in] [Request an invite]
