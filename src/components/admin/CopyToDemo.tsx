@@ -42,6 +42,11 @@ export function CopyToDemo() {
           })}
         </p>
       )}
+      {c && c.filledGames > 0 && (
+        <p className="mt-2 text-sm text-muted">
+          {t('{games} games you do not play were added with {entries} random Pokédex entries.', { games: c.filledGames, entries: c.filledEntries })}
+        </p>
+      )}
       {result?.error && (
         <p role="alert" className="mt-3 rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">
           {t('The copy failed, so the demo was left as it was. Try again.')}
@@ -57,6 +62,7 @@ export function CopyToDemo() {
         onCancel={() => !pending && setOpen(false)}
       >
         <p>{t('Everything in the demo is replaced by a copy of what you have now, including anything visitors changed there. Your own data is not changed.')}</p>
+        <p className="mt-2">{t('Games the app has and you do not play are added to the demo with a random Pokédex.')}</p>
       </ConfirmDialog>
     </div>
   );

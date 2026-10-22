@@ -607,6 +607,8 @@ export const ES: Record<string, string> = {
   'Last copied {when}.': 'Última copia: {when}.',
   'Never copied: the demo has only what visitors added.': 'Nunca se ha copiado: la demo solo tiene lo que han añadido los visitantes.',
   '{n} Pokémon in the demo now.': 'Ahora hay {n} Pokémon en la demo.',
+  '{games} games you do not play were added with {entries} random Pokédex entries.': 'Se añadieron {games} juegos que no juegas, con {entries} entradas de Pokédex aleatorias.',
+  'Games the app has and you do not play are added to the demo with a random Pokédex.': 'Los juegos de la app que no juegas se añaden a la demo con una Pokédex aleatoria.',
   'Copying…': 'Copiando…',
   'Copy my data to the demo': 'Copiar mis datos a la demo',
   'Copied: {profiles} saves, {pokedex} Pokédex entries, {roster} Pokémon, {goals} breeding plans, {opponents} opponents and {audits} saved AI answers.': 'Copiado: {profiles} partidas, {pokedex} entradas de la Pokédex, {roster} Pokémon, {goals} planes de cría, {opponents} rivales y {audits} respuestas de IA guardadas.',

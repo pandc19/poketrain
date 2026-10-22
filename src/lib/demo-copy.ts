@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from './db';
+import { GAMES } from './games';
 
 /**
  * A new UUID version 7 (a timestamp first, then random bits), the same kind the database makes for new rows.
@@ -32,6 +33,25 @@ const withoutId = <T extends { id: string }>({ id, ...rest }: T): Omit<T, 'id'> 
 /** A JSON column read from the database, as a value to write: null becomes the database's NULL. */
 const json = (value: Prisma.JsonValue | null): Prisma.InputJsonValue | typeof Prisma.DbNull => (value === null ? Prisma.DbNull : (value as Prisma.InputJsonValue));
 
+/** What a made-up Pokédex entry looks like: the Pokémon, and whether it is in the box and which genders there are. */
+export type RandomEntry = { speciesId: number; owned: boolean; hasMale: boolean; hasFemale: boolean };
+
+/**
+ * A believable Pokédex for a game nobody played: somewhere between a third and nine tenths of the species are
+ * caught, most are still in the box, and each has one gender or both. `random` is Math.random, or a fixed
+ * sequence in tests.
+ */
+export function randomEntries(speciesIds: readonly number[], random: () => number = Math.random): RandomEntry[] {
+  const progress = 0.35 + random() * 0.55;
+  const caught: RandomEntry[] = [];
+  for (const speciesId of speciesIds) {
+    if (random() >= progress) continue;
+    const genders = random();
+    caught.push({ speciesId, owned: random() < 0.85, hasMale: genders < 0.8, hasFemale: genders >= 0.2 });
+  }
+  return caught;
+}
+
 export type CopyCounts = {
   profiles: number;
   pokedexEntries: number;
@@ -40,12 +60,16 @@ export type CopyCounts = {
   breedingGoals: number;
   opponents: number;
   audits: number;
+  /** Games the app has and the source has no save of, given a made-up Pokédex so the demo has them too. */
+  filledGames: number;
+  filledEntries: number;
 };
 
 /**
  * Replaces everything of one user with a copy of everything of another: the saves (profiles), the Pokédex, the
  * roster with its moves and roles, the team, the breeding plans, the opponents and the saved AI answers. Used to
  * keep the demo complete with the owner's data, so a game or a Pokémon the owner adds shows up there too.
+ * A game the owner has no save of is added to the demo anyway, with a random Pokédex (see randomEntries).
  *
  * Rows get new ids, and what pointed at one row points at its copy. All of it is one transaction: either the
  * demo is the copy, or (if anything fails) it is what it was. The source is only read.
@@ -130,6 +154,27 @@ export async function copyUserData(fromUserId: string, toUserId: string): Promis
         })),
       });
 
+      // A game the app has and the owner does not play still gets a save, with a made-up Pokédex.
+      const played = new Set(profiles.map((p) => p.gameId));
+      let filledGames = 0;
+      let filledEntries = 0;
+      for (const game of GAMES.filter((g) => !played.has(g.id))) {
+        const speciesIds = new Set<number>();
+        for (const dex of game.pokedexes) {
+          const slots = await tx.pokedexSlot.findMany({
+            where: { pokedex: { slug: dex.slug }, ...(dex.lastEntry ? { entryNumber: { lte: dex.lastEntry } } : {}) },
+            select: { speciesId: true },
+          });
+          slots.forEach((s) => speciesIds.add(s.speciesId));
+        }
+        if (speciesIds.size === 0) continue;
+        const profile = await tx.gameProfile.create({ data: { userId: toUserId, gameId: game.id, name: 'Main save' }, select: { id: true } });
+        const made = randomEntries([...speciesIds]);
+        await tx.pokedexEntry.createMany({ data: made.map((e) => ({ ...e, profileId: profile.id })) });
+        filledGames++;
+        filledEntries += made.length;
+      }
+
       await tx.user.update({ where: { id: toUserId }, data: { dataCopiedAt: new Date() } });
 
       return {
@@ -140,6 +185,8 @@ export async function copyUserData(fromUserId: string, toUserId: string): Promis
         breedingGoals: goals.length,
         opponents: opponents.length,
         audits: audits.length,
+        filledGames,
+        filledEntries,
       };
     },
     // A big roster takes a few seconds; the default of five would cut the copy short.
