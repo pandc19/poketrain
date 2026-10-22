@@ -1,4 +1,5 @@
 import { ImportWizard } from '@/components/ImportWizard';
+import { gameShortName } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 
@@ -12,10 +13,10 @@ export default async function ImportPage({ params }: PageProps<'/[game]/import'>
       <p className="mb-5 mt-1 text-sm text-muted">
         {t(
           'Bring your {game} training sheet in as roster Pokémon. You choose what each column means, review how it was read, then import.',
-          { game: game.shortName }
+          { game: gameShortName(game, lang) }
         )}
       </p>
-      <ImportWizard gameId={game.id} gameName={game.shortName} lang={lang} hasEvs={game.features.evs} hasEvTarget={game.features.evTarget} />
+      <ImportWizard gameId={game.id} gameName={gameShortName(game, lang)} lang={lang} hasEvs={game.features.evs} hasEvTarget={game.features.evTarget} />
     </div>
   );
 }

@@ -4,16 +4,16 @@ import { NameForm } from '@/components/auth/NameForm';
 import { PasswordForm } from '@/components/auth/PasswordForm';
 import { MyGames } from '@/components/games/MyGames';
 import { getUser } from '@/lib/current-user';
-import { GAMES } from '@/lib/games';
-import { getT } from '@/lib/i18n';
+import { GAMES, gameName, gameShortName } from '@/lib/games';
+import { getLang, getT } from '@/lib/i18n';
 import { gameDataOf } from '@/lib/my-games';
 
 export default async function SettingsPage() {
-  const [user, t] = await Promise.all([getUser(), getT()]);
+  const [user, t, lang] = await Promise.all([getUser(), getT(), getLang()]);
   if (user.isDemo) redirect('/login');
   const games = (await gameDataOf(user.id)).map((d) => {
     const g = GAMES.find((x) => x.id === d.gameId)!;
-    return { ...d, id: g.id, name: g.name, shortName: g.shortName, colors: { from: g.theme.from, to: g.theme.to } };
+    return { ...d, id: g.id, name: gameName(g, lang), shortName: gameShortName(g, lang), colors: { from: g.theme.from, to: g.theme.to } };
   });
   return (
     <>

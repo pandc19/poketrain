@@ -1,4 +1,5 @@
 import { SearchBoard } from '@/components/SearchBoard';
+import { gameShortName } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadRoster } from '@/lib/roster';
@@ -10,7 +11,7 @@ export default async function SearchPage({ params }: PageProps<'/[game]/search'>
 
   return (
     <div>
-      <h1 className="text-xl font-bold">{t('{game} roster search', { game: game.shortName })}</h1>
+      <h1 className="text-xl font-bold">{t('{game} roster search', { game: gameShortName(game, lang) })}</h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
         {t('Find the Pokémon in your roster by what they have. Add a move or an ability and you get every Pokémon that has it.')}
       </p>

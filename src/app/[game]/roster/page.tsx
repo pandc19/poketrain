@@ -1,6 +1,7 @@
 import { HelpTip } from '@/components/HelpTip';
 import { RosterBoard } from '@/components/RosterBoard';
 import { gameHasMints } from '@/lib/audit-ask';
+import { gameShortName } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadEditorOptions, loadRoster } from '@/lib/roster';
@@ -22,7 +23,7 @@ export default async function RosterPage({ params, searchParams }: PageProps<'/[
   return (
     <div>
       <h1 className="mb-4 flex items-center gap-2 text-xl font-bold">
-        {t('{game} trained roster', { game: game.shortName })}
+        {t('{game} trained roster', { game: gameShortName(game, lang) })}
         <HelpTip>
           <span className="block">
             {t('Your roster is the Pokémon you train: the ones you have, with their moves, items and EVs, and the ones you plan to get.')}

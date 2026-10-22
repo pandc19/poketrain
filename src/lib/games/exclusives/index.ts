@@ -10,8 +10,8 @@ export type { ExclusiveEntry } from './types';
  * version offers (and they need a trade, raid or union circle to get).
  */
 export type VersionExclusives = {
-  ownName: string;
-  otherName: string;
+  ownName: Localized;
+  otherName: Localized;
   groups: { id: string; label: Localized; note?: Localized; own: ExclusiveEntry[]; other: ExclusiveEntry[] }[];
   /** How the player can still get the other version's Pokémon, per the source. */
   howToGetOther: Localized;
@@ -36,7 +36,7 @@ const GROUP_TEXT: Record<string, { label: Localized; note?: Localized }> = {
 
 export function scarletVioletExclusives(own: 'scarlet' | 'violet'): VersionExclusives {
   const other = own === 'violet' ? 'scarlet' : 'violet';
-  const name = (v: 'scarlet' | 'violet') => (v === 'scarlet' ? 'Scarlet' : 'Violet');
+  const name = (v: 'scarlet' | 'violet'): Localized => (v === 'scarlet' ? { en: 'Scarlet', es: 'Escarlata' } : { en: 'Violet', es: 'Púrpura' });
   return {
     ownName: name(own),
     otherName: name(other),

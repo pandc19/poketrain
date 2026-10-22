@@ -26,11 +26,12 @@ describe('games, grouped as they are sold', () => {
 });
 
 describe('confirming the removal of a game', () => {
-  const violet = { id: 'violet', shortName: 'Violet' } as unknown as GameConfig;
+  const violet = { id: 'violet', shortName: 'Violet', shortNameEs: 'Púrpura' } as unknown as GameConfig;
 
   it('accepts the short name, whatever the capitals and the spaces around it', () => {
     expect(confirmsRemoval('Violet', violet)).toBe(true);
     expect(confirmsRemoval('  violet ', violet)).toBe(true);
+    expect(confirmsRemoval('púrpura', violet)).toBe(true);
   });
 
   it('refuses anything else, the other version and an empty box included', () => {

@@ -8,7 +8,7 @@ import { ownedGameIds } from "@/lib/my-games";
 import { getUser } from "@/lib/current-user";
 import { firstName } from "@/lib/auth/rules";
 import { prisma } from "@/lib/db";
-import { GAMES } from "@/lib/games";
+import { GAMES, gameShortName } from "@/lib/games";
 import { getLang, getT } from "@/lib/i18n";
 import { getTheme } from "@/lib/theme-server";
 import { LangProvider } from "@/lib/translate-client";
@@ -58,7 +58,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             canAddGames={!user.isDemo}
             games={GAMES.filter((g) => owned.includes(g.id)).map((g) => ({
               id: g.id,
-              shortName: g.shortName,
+              shortName: gameShortName(g, lang),
               pair: g.pair,
               theme: g.theme,
               breeding: g.features.breeding,

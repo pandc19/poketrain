@@ -1,5 +1,6 @@
 import { DexBrowser } from '@/components/DexBrowser';
 import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, gameDexes } from '@/lib/games';
+import { gameShortName } from '@/lib/games';
 import { getLang } from '@/lib/i18n';
 import { prisma } from '@/lib/db';
 import { loadDex } from '@/lib/pokedex';
@@ -28,7 +29,7 @@ export default async function PokedexPage({ params, searchParams }: PageProps<'/
   return (
     <DexBrowser
       gameId={game.id}
-      gameName={game.shortName}
+      gameName={gameShortName(game, lang)}
       accent={'var(--game-accent)'}
       tabColor={game.theme.from}
       dexes={[

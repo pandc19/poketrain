@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { AddGamesForm, type GroupView } from '@/components/games/AddGamesForm';
 import { getUser } from '@/lib/current-user';
-import { GAMES } from '@/lib/games';
+import { GAMES, gameName, gameShortName, pairShortName } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { pickerGames } from '@/lib/landing';
 import { groupGames, ownedGameIds } from '@/lib/my-games';
@@ -20,9 +20,9 @@ export default async function AddGamePage({ searchParams }: PageProps<'/games/ad
     const first = info.get(group[0].id)!;
     return {
       key: group.map((g) => g.id).join('-'),
-      title: versions.length > 1 ? `Pokémon ${versions.map((g) => g.shortName).join(' / ')}` : group[0].name,
+      title: versions.length > 1 ? `Pokémon ${pairShortName(versions, lang)}` : gameName(group[0], lang),
       detail: [first.generation, first.pokedexes.map((d) => d.name).join(', ')].join(' · '),
-      versions: versions.map((g) => ({ id: g.id, shortName: g.shortName, from: g.theme.from, to: g.theme.to, owned: owned.has(g.id), chosen: g.id === wanted })),
+      versions: versions.map((g) => ({ id: g.id, shortName: gameShortName(g, lang), from: g.theme.from, to: g.theme.to, owned: owned.has(g.id), chosen: g.id === wanted })),
     };
   });
 
