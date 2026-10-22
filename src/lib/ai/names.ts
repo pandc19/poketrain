@@ -1,5 +1,7 @@
 import { prisma } from '../db';
+import { SCARLET_VIOLET_PLACES } from '../games/places';
 import type { Lang } from '../i18n';
+import type { LocationBody } from '../location-text';
 
 type Dictionary = { map: Map<string, string>; re: RegExp };
 let loading: Promise<Dictionary> | null = null;
@@ -7,7 +9,7 @@ let loading: Promise<Dictionary> | null = null;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Every game name that differs between English and Spanish (moves, items, abilities, natures, Pokémon), loaded
+ * Every game name that differs between English and Spanish (places, moves, items, abilities, natures, Pokémon), loaded
  * once per server run. It is what the game itself calls them in Spanish, taken from the synced game data.
  */
 function load(): Promise<Dictionary> {
@@ -20,6 +22,8 @@ function load(): Promise<Dictionary> {
       prisma.species.findMany({ select: { nameEn: true, nameEs: true } }),
     ]);
     const map = new Map<string, string>();
+    // The places go first: where a place and a Pokémon share a name, the place is what a location answer means.
+    for (const p of SCARLET_VIOLET_PLACES) map.set(p.en, p.es);
     for (const row of [...species, ...abilities, ...natures, ...items, ...moves]) {
       // Short or identical names are left alone: they are too easy to meet as ordinary words.
       if (row.nameEn.length >= 4 && row.nameEs && row.nameEs !== row.nameEn && !map.has(row.nameEn)) {
@@ -41,4 +45,19 @@ export async function localizeNames(text: string, lang: Lang): Promise<string> {
   if (lang !== 'es' || !text) return text;
   const { map, re } = await load();
   return text.replace(re, (name) => map.get(name) ?? name);
+}
+
+/**
+ * A location answer in the player's language. The saved Spanish text has the places that were left in English
+ * (Kitakami, Asado Desert...) written the way the Spanish game does, which also fixes answers saved before the
+ * places were known. The English text is left as it is. Nothing is sent to a model.
+ */
+export async function localizeLocation(body: LocationBody | null, lang: Lang): Promise<LocationBody | null> {
+  if (!body || lang !== 'es') return body;
+  const say = (text: string) => localizeNames(text, lang);
+  return {
+    ...body,
+    locations: await Promise.all(body.locations.map(async (l) => ({ place: await say(l.place), nearby: await say(l.nearby), details: await say(l.details) }))),
+    notes: await say(body.notes),
+  };
 }

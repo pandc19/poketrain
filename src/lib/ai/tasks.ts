@@ -389,7 +389,7 @@ export async function researchLocation(
     tier: 'bulk',
     prompt:
       `Where can ${pokemon} be caught in ${names}? Be brief: at most two places, best first. ` +
-      'For each: place is the area name; nearby is the nearest fast-travel point, town or region to head to; ' +
+      'For each: place is the area name, exactly as the English game spells it; nearby is the nearest fast-travel point, town or region to head to; ' +
       'details is at most one short sentence on where in the area or how to get there (DLC area or raid only, if that applies). ' +
       (game.locationNote ? `${game.locationNote} ` : '') +
       (game.pair

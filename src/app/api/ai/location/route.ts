@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { apiError } from '@/lib/api-error';
 import { AiError, NO_AI_MESSAGE } from '@/lib/ai';
 import { getAiProviderFor } from '@/lib/ai/user-provider';
+import { localizeLocation } from '@/lib/ai/names';
 import { researchLocation } from '@/lib/ai/tasks';
 import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
@@ -35,7 +36,8 @@ export async function POST(request: Request) {
   if (!provider) return apiError(NO_AI_MESSAGE, 403);
   try {
     const stored = await researchLocation(provider, game, user.id, parsed.data.speciesId, species.nameEn, parsed.data.refresh);
-    return Response.json({ result: pickLocation(stored, await getLang()) });
+    const lang = await getLang();
+    return Response.json({ result: await localizeLocation(pickLocation(stored, lang), lang) });
   } catch (error) {
     if (error instanceof AiError) return apiError(error.message, 502, error.vars);
     throw error;
@@ -57,7 +59,7 @@ export async function GET(request: Request) {
   const results: Record<number, unknown> = {};
   for (const [id, stored] of await findLocations(game, ids)) {
     const body = pickLocation(stored, lang);
-    if (body) results[id] = body;
+    if (body) results[id] = await localizeLocation(body, lang);
   }
   return Response.json({ results });
 }
