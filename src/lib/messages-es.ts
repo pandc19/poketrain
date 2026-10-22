@@ -646,6 +646,7 @@ export const ES: Record<string, string> = {
   'Breeding plans': 'Planes de cría',
   'Held items': 'Objetos equipados',
   'Suggestions': 'Sugerencias',
+  'Where to find': 'Dónde encontrar',
   'No new suggestions.': 'No hay sugerencias nuevas.',
   'Anonymous': 'Anónimo',
   'Archived suggestions': 'Sugerencias archivadas',
