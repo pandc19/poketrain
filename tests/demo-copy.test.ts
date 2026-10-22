@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newId, remapIds } from '@/lib/demo-copy';
+import { newId, randomEntries, remapIds } from '@/lib/demo-copy';
 
 describe('new ids', () => {
   it('are version 7 UUIDs, like the ones the database makes', () => {
@@ -46,5 +46,36 @@ describe('pointing at the copies', () => {
     expect(remapIds(3, ids)).toBe(3);
     expect(remapIds(OLD, ids)).toBe(NEW);
     expect(remapIds([], ids)).toEqual([]);
+  });
+});
+
+describe('a made-up Pokédex', () => {
+  const species = Array.from({ length: 200 }, (_, i) => i + 1);
+
+  it('catches only Pokémon of the game, each once', () => {
+    const made = randomEntries(species);
+    expect(new Set(made.map((e) => e.speciesId)).size).toBe(made.length);
+    expect(made.every((e) => species.includes(e.speciesId))).toBe(true);
+  });
+
+  it('catches between a third and nine tenths of them', () => {
+    for (let i = 0; i < 20; i++) {
+      const n = randomEntries(species).length;
+      expect(n).toBeGreaterThan(species.length * 0.2);
+      expect(n).toBeLessThan(species.length * 0.98);
+    }
+  });
+
+  it('gives every caught Pokémon at least one gender', () => {
+    expect(randomEntries(species).every((e) => e.hasMale || e.hasFemale)).toBe(true);
+  });
+
+  it('is empty for a game with no Pokémon, and the same for the same dice', () => {
+    expect(randomEntries([])).toEqual([]);
+    const seq = () => {
+      let n = 0.1;
+      return () => (n = (n * 7.3 + 0.17) % 1);
+    };
+    expect(randomEntries(species, seq())).toEqual(randomEntries(species, seq()));
   });
 });

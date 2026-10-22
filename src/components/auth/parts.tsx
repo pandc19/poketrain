@@ -36,6 +36,7 @@ export function Field({
   defaultValue,
   required = true,
   hint,
+  maxLength,
 }: {
   label: string;
   name: string;
@@ -44,6 +45,7 @@ export function Field({
   defaultValue?: string;
   required?: boolean;
   hint?: string;
+  maxLength?: number;
 }) {
   return (
     <label className="block">
@@ -54,6 +56,7 @@ export function Field({
         autoComplete={autoComplete}
         defaultValue={defaultValue}
         required={required}
+        maxLength={maxLength}
         className="mt-1 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-[var(--game-accent)]"
       />
       {hint && <span className="mt-1 block text-xs text-muted">{hint}</span>}

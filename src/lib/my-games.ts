@@ -55,8 +55,9 @@ export async function gameDataOf(userId: string): Promise<GameData[]> {
   });
 }
 
-/** Whether what was typed to confirm a removal is the game's short name (capitals and spaces around it do not matter). */
-export const confirmsRemoval = (typed: string, game: GameConfig): boolean => typed.trim().toLowerCase() === game.shortName.toLowerCase();
+/** Whether what was typed to confirm a removal is the game's short name, in either language (capitals and spaces around it do not matter). */
+export const confirmsRemoval = (typed: string, game: GameConfig): boolean =>
+  [game.shortName, game.shortNameEs].some((name) => typed.trim().toLowerCase() === name.toLowerCase());
 
 /**
  * Deletes this account's saves of one game, and with them everything under them (Pokédex, roster, team, breeding

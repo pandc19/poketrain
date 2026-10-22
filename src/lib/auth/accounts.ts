@@ -14,11 +14,12 @@ export const RESET_VALID_MS = DAY_MS;
 export type SessionUser = {
   id: string;
   name: string;
+  lastName: string;
   email: string | null;
   role: 'ADMIN' | 'USER';
 };
 
-const userSelect = { id: true, name: true, email: true, role: true } as const;
+const userSelect = { id: true, name: true, lastName: true, email: true, role: true } as const;
 
 /** Emails are compared in lower case. */
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
@@ -66,6 +67,21 @@ export async function authenticate(email: string, password: string): Promise<Ses
   const { passwordHash: _hash, ...safe } = user;
   void _hash;
   return safe;
+}
+
+/**
+ * Changes a password after checking the current one, and ends every other login of that user (the one in
+ * `keepToken` stays). False if the current password is not right.
+ */
+export async function changePassword(userId: string, current: string, password: string, keepToken: string | undefined): Promise<boolean> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+  if (!user?.passwordHash || !(await verifyPassword(current, user.passwordHash))) return false;
+  const passwordHash = await hashPassword(password);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+    prisma.session.deleteMany({ where: { userId, ...(keepToken ? { tokenHash: { not: hashToken(keepToken) } } : {}) } }),
+  ]);
+  return true;
 }
 
 /** Sets who can log in as this user. Used for the owner, whose account existed before there were logins. */

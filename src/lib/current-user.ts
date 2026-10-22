@@ -8,13 +8,14 @@ import { DEMO_USER_ID } from './constants';
 export type CurrentUser = {
   id: string;
   name: string;
+  lastName: string;
   email: string | null;
   role: 'ADMIN' | 'USER';
   /** Nobody is logged in: this is the shared demo. */
   isDemo: boolean;
 };
 
-const DEMO: CurrentUser = { id: DEMO_USER_ID, name: 'Demo', email: null, role: 'USER', isDemo: true };
+const DEMO: CurrentUser = { id: DEMO_USER_ID, name: 'Demo', lastName: '', email: null, role: 'USER', isDemo: true };
 
 /** Who is using the app: the logged-in user, or else the demo. Looked up once per request. */
 export const getUser = cache(async (): Promise<CurrentUser> => {

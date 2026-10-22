@@ -1,5 +1,5 @@
-import { GAMES, type GameConfig } from './games';
-import type { Lang, TFunction } from './translate';
+import { GAMES, gameName, gameShortName, type GameConfig } from './games';
+import { pick, type Lang, type TFunction } from './translate';
 
 /** What the app does for a game because of how that game works. The picker draws an icon for each. */
 export type FeatureKey = 'breeding' | 'evs' | 'items' | 'tera' | 'raids' | 'picnic' | 'judge';
@@ -48,14 +48,14 @@ export function pickerGames(
     ].filter((x): x is { key: FeatureKey; label: string } => Boolean(x));
     return {
       id: g.id,
-      name: g.name,
-      shortName: g.shortName,
+      name: gameName(g, lang),
+      shortName: gameShortName(g, lang),
       generation: t('Generation {n}', { n: ROMAN[g.generation] ?? g.generation }),
       theme: g.theme,
       pokedexes: g.pokedexes.map((d) => ({ name: d.name[lang], note: d.note[lang], size: sizes.get(d.slug) ?? null })),
       features,
       versions: g.versionExclusives
-        ? t('Marks the Pokémon only {own} has, and the ones you need {other} for.', { own: g.versionExclusives.ownName, other: g.versionExclusives.otherName })
+        ? t('Marks the Pokémon only {own} has, and the ones you need {other} for.', { own: pick(g.versionExclusives.ownName, lang), other: pick(g.versionExclusives.otherName, lang) })
         : null,
       inDemo: demoGames ? demoGames.has(g.id) : true,
     };

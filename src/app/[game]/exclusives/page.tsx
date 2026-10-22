@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { ExclusivesBoard, type ExclusiveGroupView, type ExclusiveTile } from '@/components/ExclusivesBoard';
 import { prisma } from '@/lib/db';
-import { getLang, getT } from '@/lib/i18n';
+import { getLang, getT, pick } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 
 /** The end of the form's slug in the data for each form label in the exclusives list. */
@@ -98,18 +98,18 @@ export default async function ExclusivesPage({ params }: PageProps<'/[game]/excl
   return (
     <div>
       <h1 className="text-xl font-bold">
-        {t('{own} and {other} exclusives', { own: ve.ownName, other: ve.otherName })}
+        {t('{own} and {other} exclusives', { own: pick(ve.ownName, lang), other: pick(ve.otherName, lang) })}
       </h1>
       <p className="mb-5 mt-1 max-w-3xl text-sm text-muted">
         {t(
           'Some Pokémon can only be caught in one of the two versions. You are playing {own}, so these are the ones you will never find in the wild here, and the ones that are yours alone. Click one for its details.',
-          { own: ve.ownName }
+          { own: pick(ve.ownName, lang) }
         )}
       </p>
       <ExclusivesBoard
         gameId={game.id}
-        ownName={ve.ownName}
-        otherName={ve.otherName}
+        ownName={pick(ve.ownName, lang)}
+        otherName={pick(ve.otherName, lang)}
         howToGetOther={ve.howToGetOther}
         groups={groups}
         lang={lang}

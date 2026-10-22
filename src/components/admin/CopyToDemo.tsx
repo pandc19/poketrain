@@ -32,14 +32,21 @@ export function CopyToDemo() {
       </button>
       {c && (
         <p className="mt-3 rounded-md border border-done/40 bg-done/10 px-3 py-2 text-sm text-done">
-          {t('Copied: {profiles} saves, {pokedex} Pokédex entries, {roster} Pokémon, {goals} breeding plans, {opponents} opponents and {audits} saved AI answers.', {
-            profiles: c.profiles,
+          {t('Copied: {games}, {pokedex} Pokédex entries, {roster} Pokémon, {plans}, {opponents} opponents and {audits} saved AI answers.', {
+            games: c.profiles === 1 ? t('1 game') : t('{n} games', { n: c.profiles }),
             pokedex: c.pokedexEntries,
             roster: c.roster,
-            goals: c.breedingGoals,
+            plans: c.breedingGoals === 1 ? t('1 breeding plan') : t('{n} breeding plans', { n: c.breedingGoals }),
             opponents: c.opponents,
             audits: c.audits,
           })}
+        </p>
+      )}
+      {c && c.filledGames > 0 && (
+        <p className="mt-2 text-sm text-muted">
+          {c.filledGames === 1
+            ? t('1 game you do not play was added with {entries} random Pokédex entries.', { entries: c.filledEntries })
+            : t('{games} games you do not play were added with {entries} random Pokédex entries.', { games: c.filledGames, entries: c.filledEntries })}
         </p>
       )}
       {result?.error && (
@@ -57,6 +64,7 @@ export function CopyToDemo() {
         onCancel={() => !pending && setOpen(false)}
       >
         <p>{t('Everything in the demo is replaced by a copy of what you have now, including anything visitors changed there. Your own data is not changed.')}</p>
+        <p className="mt-2">{t('Games the app has and you do not play are added to the demo with a random Pokédex.')}</p>
       </ConfirmDialog>
     </div>
   );

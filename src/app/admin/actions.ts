@@ -42,7 +42,7 @@ export async function declineRequest(requestId: string): Promise<void> {
   await requireAdmin();
   if (!Id.safeParse(requestId).success) return;
   await prisma.inviteRequest.updateMany({ where: { id: requestId, status: 'PENDING' }, data: { status: 'DECLINED' } });
-  revalidatePath('/admin');
+  revalidatePath('/admin', 'layout');
 }
 
 /** A one-time invite without a request, for one email or for anyone. */
@@ -52,7 +52,7 @@ export async function createInviteLink(_state: LinkState, formData: FormData): P
   const email = raw ? z.email().max(200).safeParse(raw) : null;
   if (email && !email.success) return { error: 'email' };
   const code = await createInvite({ email: email?.data ?? null, createdById: admin.id });
-  revalidatePath('/admin');
+  revalidatePath('/admin', 'layout');
   return { link: linkTo(await appOrigin(), '/register', { invite: code }) };
 }
 
@@ -61,7 +61,7 @@ export async function revokeInvite(inviteId: string): Promise<void> {
   await requireAdmin();
   if (!Id.safeParse(inviteId).success) return;
   await prisma.invite.deleteMany({ where: { id: inviteId, usedAt: null } });
-  revalidatePath('/admin');
+  revalidatePath('/admin', 'layout');
 }
 
 /** A one-time link, good for a day, to choose a new password. Logs that person out everywhere once it is used. */
@@ -81,7 +81,7 @@ export async function deleteLocation(locationId: string): Promise<void> {
   await requireAdmin();
   if (!Id.safeParse(locationId).success) return;
   await prisma.pokemonLocation.deleteMany({ where: { id: locationId } });
-  revalidatePath('/admin');
+  revalidatePath('/admin', 'layout');
 }
 
 export type CopyResult = { counts?: CopyCounts; error?: 'failed' };
@@ -95,7 +95,7 @@ export async function copyToDemo(): Promise<CopyResult> {
   if (admin.id === DEMO_USER_ID) return { error: 'failed' };
   try {
     const counts = await copyUserData(admin.id, DEMO_USER_ID);
-    revalidatePath('/admin');
+    revalidatePath('/admin', 'layout');
     return { counts };
   } catch (error) {
     console.error('Copying to the demo failed:', error);
@@ -108,19 +108,19 @@ export async function archiveSuggestion(suggestionId: string): Promise<void> {
   await requireAdmin();
   if (!Id.safeParse(suggestionId).success) return;
   await prisma.featureSuggestion.updateMany({ where: { id: suggestionId, archivedAt: null }, data: { archivedAt: new Date() } });
-  revalidatePath('/admin');
+  revalidatePath('/admin', 'layout');
 }
 
 export async function restoreSuggestion(suggestionId: string): Promise<void> {
   await requireAdmin();
   if (!Id.safeParse(suggestionId).success) return;
   await prisma.featureSuggestion.updateMany({ where: { id: suggestionId }, data: { archivedAt: null } });
-  revalidatePath('/admin');
+  revalidatePath('/admin', 'layout');
 }
 
 export async function deleteSuggestion(suggestionId: string): Promise<void> {
   await requireAdmin();
   if (!Id.safeParse(suggestionId).success) return;
   await prisma.featureSuggestion.deleteMany({ where: { id: suggestionId } });
-  revalidatePath('/admin');
+  revalidatePath('/admin', 'layout');
 }

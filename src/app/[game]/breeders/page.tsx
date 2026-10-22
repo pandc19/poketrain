@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { BreedersBoard } from '@/components/BreedersBoard';
 import { BreedingSwitch } from '@/components/BreedingSwitch';
 import { HelpTip } from '@/components/HelpTip';
+import { gameShortName } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
 import { requireGameProfile } from '@/lib/profile';
 import { loadEditorOptions, loadRoster } from '@/lib/roster';
@@ -22,7 +23,7 @@ export default async function BreedersPage({ params, searchParams }: PageProps<'
   return (
     <div>
       <h1 className="flex items-center gap-2 text-xl font-bold">
-        {t('{game} breeders', { game: game.shortName })}
+        {t('{game} breeders', { game: gameShortName(game, lang) })}
         <HelpTip>
           <span className="block">
             {t('Breeders are the Pokémon you keep to breed with. Adding one means you caught it and you have it, so it is marked as caught and “Have” in your Pokédex.')}

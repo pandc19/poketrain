@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { setLang } from '@/app/actions';
-import { logout } from '@/app/auth/actions';
 import { CatalogButton } from './CatalogDialog';
+import { LanguageSwitch } from './LanguageSwitch';
 import { ShellMotif } from './ShellMotif';
 import { ThemeToggle } from './ThemeToggle';
+import { UserMenu } from './UserMenu';
 import type { CatalogSection } from '@/lib/games/catalog';
 import type { GameMotif } from '@/lib/games';
 import { useT } from '@/lib/translate-client';
@@ -45,12 +45,11 @@ type HeaderUser = { name: string; admin: boolean; demo: boolean };
 
 /** `games` are the ones this account has; `canAddGames` is true for anyone logged in, who can add more. */
 export function Header({ games, user, canAddGames }: { games: GameLink[]; user: HeaderUser; canAddGames: boolean }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const pathname = usePathname();
   // With no game there is nothing to show in a game's header: only the logo and the way to add one.
   const plain = games.length === 0 || pathname === '/' || PLAIN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const params = useParams<{ game?: string }>();
-  const [pending, startTransition] = useTransition();
   const current = games.find((g) => g.id === params.game) ?? games[0] ?? NO_GAME;
   const [gamesOpen, setGamesOpen] = useState(false);
   // Paired versions (Scarlet and Violet) share one cartridge slot in the shell; this one is open.
@@ -221,40 +220,17 @@ export function Header({ games, user, canAddGames }: { games: GameLink[]; user: 
             </Link>
           )}
           {user.demo ? (
-            <Link href="/login" className="rounded-md bg-black/20 px-3 py-1.5 font-display text-xs font-semibold text-white hover:bg-black/30">
-              {t('Log in')}
-            </Link>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-white/90">
-              {user.admin && (
-                <Link href="/admin" className="rounded-md px-2 py-1.5 font-display font-semibold text-white/90 hover:bg-black/20">
-                  {t('Admin')}
-                </Link>
-              )}
-              <Link href="/settings" className="hidden max-w-32 truncate hover:underline sm:inline" title={t('Settings')}>
-                {user.name}
+            <>
+              <Link href="/login" className="rounded-md bg-black/20 px-3 py-1.5 font-display text-xs font-semibold text-white hover:bg-black/30">
+                {t('Log in')}
               </Link>
-              <form action={logout}>
-                <button type="submit" className="rounded-md bg-black/20 px-3 py-1.5 font-display font-semibold text-white hover:bg-black/30">
-                  {t('Log out')}
-                </button>
-              </form>
-            </div>
+              {/* The account menu holds these for anyone logged in. */}
+              <ThemeToggle />
+              <LanguageSwitch />
+            </>
+          ) : (
+            <UserMenu name={user.name} admin={user.admin} />
           )}
-          <ThemeToggle />
-          <div className="flex items-center rounded-md bg-black/20 p-0.5 text-xs shadow-inner" aria-label={t('Language')}>
-            {(['es', 'en'] as const).map((l) => (
-              <button
-                key={l}
-                disabled={pending}
-                onClick={() => startTransition(() => setLang(l))}
-                aria-pressed={lang === l}
-                className={`rounded px-2 py-1 font-display uppercase ${lang === l ? 'bg-white font-semibold text-shell-dark' : 'text-white/80 hover:text-white'}`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 

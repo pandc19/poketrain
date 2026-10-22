@@ -231,7 +231,9 @@ enum UserRole {
 
 model User {
   id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  /// The first name; the one the menu shows.
   name           String
+  lastName       String    @default("") @map("last_name")
   /// Lower case. Null for the demo user, which nobody logs in as.
   email          String?   @unique
   passwordHash   String?   @map("password_hash")

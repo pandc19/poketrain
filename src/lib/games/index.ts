@@ -1,4 +1,4 @@
-import type { Localized } from '../translate';
+import type { Lang, Localized } from '../translate';
 import { type CatalogSection, SCARLET_VIOLET_BREEDING_CATALOG, SCARLET_VIOLET_CATALOG } from './catalog';
 import { scarletVioletExclusives, type VersionExclusives } from './exclusives';
 
@@ -14,8 +14,11 @@ export type GameConfig = {
   id: string;
   /** For games sold as a pair, the other version's id. */
   pair?: string;
+  /** English; see `gameName` for the one in the player's language. */
   name: string;
   shortName: string;
+  /** The short name in Spanish (Violet is Púrpura). */
+  shortNameEs: string;
   generation: number;
   /** Primary PokéAPI version group. */
   versionGroup: string;
@@ -102,11 +105,13 @@ export type GameMotif = 'future' | 'ancient';
 function scarletViolet(version: 'scarlet' | 'violet', theme: GameConfig['theme']): GameConfig {
   const other = version === 'violet' ? 'scarlet' : 'violet';
   const name = version === 'violet' ? 'Violet' : 'Scarlet';
+  const nameEs = version === 'violet' ? 'Púrpura' : 'Escarlata';
   return {
     id: version,
     pair: other,
     name: `Pokémon ${name}`,
     shortName: name,
+    shortNameEs: nameEs,
     generation: 9,
     versionGroup: 'scarlet-violet',
     learnsetVersionGroups: ['scarlet-violet', 'the-teal-mask', 'the-indigo-disk'],
@@ -158,6 +163,16 @@ export const GAMES: GameConfig[] = [
 
 export const NATIONAL_DEX_SLUG = 'national';
 export const EXTRA_DEX_SLUG = 'extra';
+
+/** The game's short name in the player's language: Scarlet or Escarlata. */
+export const gameShortName = (g: GameConfig, lang: Lang): string => (lang === 'en' ? g.shortName : g.shortNameEs);
+
+/** The game's full name in the player's language: Pokémon Scarlet or Pokémon Escarlata. */
+export const gameName = (g: GameConfig, lang: Lang): string => `Pokémon ${gameShortName(g, lang)}`;
+
+/** The versions of a pair named together: Scarlet and Violet, or Escarlata y Púrpura. Alphabetical in English, so it is the same in both languages. */
+export const pairShortName = (games: GameConfig[], lang: Lang): string =>
+  [...games].sort((a, b) => a.shortName.localeCompare(b.shortName)).map((g) => gameShortName(g, lang)).join(lang === 'en' ? ' and ' : ' y ');
 
 export function getGame(id: string): GameConfig | undefined {
   return GAMES.find((g) => g.id === id);

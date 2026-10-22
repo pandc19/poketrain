@@ -55,7 +55,7 @@ export function AiUnavailable({ kind }: { kind: AiKind }) {
       ) : (
         <>
           <span>{t('AI is off.')}</span>
-          <Link href="/settings" className="underline underline-offset-2 hover:text-ink">
+          <Link href="/settings/ai" className="underline underline-offset-2 hover:text-ink">
             {t('Add your AI key in Settings')}
           </Link>
         </>

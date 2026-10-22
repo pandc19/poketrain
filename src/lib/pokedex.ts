@@ -1,7 +1,9 @@
 import { prisma } from './db';
 import { getUserId } from './current-user';
 import type { Prisma } from '@prisma/client';
-import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, gameDexes, getGame } from './games';
+import { EXTRA_DEX_SLUG, NATIONAL_DEX_SLUG, gameDexes, gameShortName, getGame } from './games';
+import { getLang } from './i18n';
+import { pick } from './translate';
 import { rosterProgress } from './roster-status';
 import { exclusiveBySpecies } from './games/exclusives';
 import { type Variant, REGIONS, VARIANTS, encodeKey, variantOfSlug } from './dex-variant';
@@ -101,7 +103,7 @@ export async function loadDex(
   // The extra tab lists forms no Pokédex of the game numbers; each one is shown as its regional form.
   const isExtra = pokedexSlug === EXTRA_DEX_SLUG && Boolean(opts.gameId && getGame(opts.gameId)?.extraForms);
   const dexSlots = isExtra ? await gameDexSlots(opts.gameId!) : [];
-  const userId = await getUserId();
+  const [userId, lang] = await Promise.all([getUserId(), getLang()]);
   const [slots, entries, roster, gameSlots, lines] = await Promise.all([
     isExtra
       ? Promise.all([
@@ -222,7 +224,8 @@ export async function loadDex(
       gendersHere.set(key, { hasMale: e.hasMale, hasFemale: e.hasFemale });
       continue;
     }
-    const name = getGame(e.profile.gameId)?.shortName ?? e.profile.gameId;
+    const game = getGame(e.profile.gameId);
+    const name = game ? gameShortName(game, lang) : e.profile.gameId;
     if (!caughtIn.has(e.speciesId)) caughtIn.set(e.speciesId, new Set());
     caughtIn.get(e.speciesId)!.add(name);
   }
@@ -291,7 +294,7 @@ export async function loadDex(
       keeper: rosterKeeper.has(key),
       training: rosterTraining.has(key),
       ready: rosterReady.has(key),
-      exclusive: side && versions ? { versionName: side === 'own' ? versions.ownName : versions.otherName, own: side === 'own' } : null,
+      exclusive: side && versions ? { versionName: pick(side === 'own' ? versions.ownName : versions.otherName, lang), own: side === 'own' } : null,
       owned: holding(s.species.id, variant),
       ownedViaRoster: rosterOwned.has(key),
     };

@@ -60,8 +60,8 @@ describe('version exclusives', () => {
 
   it('flips the point of view between versions', () => {
     const scarlet = scarletVioletExclusives('scarlet');
-    expect(violet.ownName).toBe('Violet');
-    expect(scarlet.ownName).toBe('Scarlet');
+    expect(violet.ownName.en).toBe('Violet');
+    expect(scarlet.ownName.en).toBe('Scarlet');
     expect(scarlet.groups[0].own).toEqual(violet.groups[0].other);
   });
 

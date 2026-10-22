@@ -31,8 +31,8 @@ describe('Scarlet and Violet', () => {
   it('have mirrored exclusives', () => {
     const groups = (g: typeof scarlet) => g.versionExclusives!.groups.map((x) => ({ id: x.id, own: x.own, other: x.other }));
     expect(groups(scarlet)).toEqual(groups(violet).map((x) => ({ id: x.id, own: x.other, other: x.own })));
-    expect(scarlet.versionExclusives!.ownName).toBe('Scarlet');
-    expect(scarlet.versionExclusives!.otherName).toBe('Violet');
+    expect(scarlet.versionExclusives!.ownName).toEqual({ en: 'Scarlet', es: 'Escarlata' });
+    expect(scarlet.versionExclusives!.otherName).toEqual({ en: 'Violet', es: 'Púrpura' });
   });
 
   it('look different', () => {

@@ -10,6 +10,8 @@ export type MyGame = {
   id: string;
   name: string;
   shortName: string;
+  /** The game's colours, as on its cartridge in the header. */
+  colors: { from: string; to: string };
   pokedexEntries: number;
   roster: number;
   breedingGoals: number;
@@ -28,13 +30,24 @@ export function MyGames({ games }: { games: MyGame[] }) {
         <ul className="mt-3 divide-y divide-line rounded-md border border-line">
           {games.map((g) => (
             <li key={g.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2.5">
-              <div className="min-w-0">
-                <Link href={`/${g.id}/pokedex`} className="font-medium hover:underline">
-                  {g.name}
-                </Link>
-                <p className="text-xs text-muted">
-                  {t('{dex} in the Pokédex, {roster} in the roster', { dex: g.pokedexEntries, roster: g.roster })}
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                {/* A little cartridge in the game's colours. */}
+                <span
+                  aria-hidden
+                  className="relative grid h-10 w-10 shrink-0 place-items-center rounded-t-md rounded-b-sm font-display text-base font-bold text-white shadow-[0_2px_0_rgb(0_0_0/0.3)]"
+                  style={{ background: `linear-gradient(160deg, ${g.colors.from}, ${g.colors.to})` }}
+                >
+                  <span className="absolute left-1/2 top-0 h-1 w-4 -translate-x-1/2 rounded-b bg-black/40" />
+                  {g.shortName[0]}
+                </span>
+                <div className="min-w-0">
+                  <Link href={`/${g.id}/pokedex`} className="font-medium hover:underline">
+                    {g.name}
+                  </Link>
+                  <p className="text-xs text-muted">
+                    {t('{dex} in the Pokédex, {roster} in the roster', { dex: g.pokedexEntries, roster: g.roster })}
+                  </p>
+                </div>
               </div>
               <button type="button" onClick={() => setRemoving(g)} className="rounded-md border border-line px-3 py-1 text-xs hover:text-ink">
                 {t('Remove')}
