@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   if (user.isDemo) redirect('/login');
   const games = (await gameDataOf(user.id)).map((d) => {
     const g = GAMES.find((x) => x.id === d.gameId)!;
-    return { ...d, id: g.id, name: g.name, shortName: g.shortName };
+    return { ...d, id: g.id, name: g.name, shortName: g.shortName, colors: { from: g.theme.from, to: g.theme.to } };
   });
   return (
     <>
