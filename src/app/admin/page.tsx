@@ -38,7 +38,7 @@ export default async function AdminPage({ searchParams }: PageProps<'/admin'>) {
     }),
     prisma.user.findMany({
       orderBy: { createdAt: 'asc' },
-      select: { id: true, name: true, email: true, role: true, aiProvider: true, createdAt: true, _count: { select: { sessions: true } } },
+      select: { id: true, name: true, lastName: true, email: true, role: true, aiProvider: true, createdAt: true, _count: { select: { sessions: true } } },
     }),
     prisma.pokemonLocation.findMany({
       where: query ? { species: { OR: [{ nameEn: { contains: query, mode: 'insensitive' } }, { nameEs: { contains: query, mode: 'insensitive' } }] } } : {},
@@ -235,7 +235,7 @@ export default async function AdminPage({ searchParams }: PageProps<'/admin'>) {
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                 <div className="min-w-0">
                   <p className="font-medium">
-                    {u.name}{' '}
+                    {[u.name, u.lastName].filter(Boolean).join(' ')}{' '}
                     {u.role === 'ADMIN' && <span className="ml-1 rounded-full bg-star/15 px-2 py-0.5 text-[10px] font-semibold text-star">{t('Admin')}</span>}
                   </p>
                   <p className="break-all text-sm text-muted">{u.email ?? t('The demo: nobody logs in as it')}</p>

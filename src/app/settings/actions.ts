@@ -1,10 +1,13 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { verifyAiSettings, keyHint } from '@/lib/ai/verify-key';
+import { changePassword as saveNewPassword } from '@/lib/auth/accounts';
+import { SESSION_COOKIE } from '@/lib/auth/cookie';
 import { take } from '@/lib/auth/rate-limit';
-import { cleanName } from '@/lib/auth/rules';
+import { cleanName, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
 import { canStoreSecrets, decryptSecret, encryptSecret } from '@/lib/secret-box';
@@ -84,7 +87,7 @@ export async function removeAiSettings(): Promise<void> {
   revalidatePath('/', 'layout');
 }
 
-export type NameFormState = { error?: 'name' | 'rate-limit'; saved?: boolean; value?: string } | undefined;
+export type NameFormState = { error?: 'name' | 'rate-limit'; saved?: boolean; value?: string; lastName?: string } | undefined;
 
 /** Changes the name on the account. It is only a label (people log in with their email), so nothing else depends on it. */
 export async function renameAccount(_state: NameFormState, formData: FormData): Promise<NameFormState> {
@@ -92,10 +95,31 @@ export async function renameAccount(_state: NameFormState, formData: FormData): 
   if (user.isDemo) redirect('/login');
 
   const name = cleanName(String(formData.get('name') ?? ''));
-  if (!name) return { error: 'name', value: name };
-  if (!take(`rename:${user.id}`, 10, HOUR)) return { error: 'rate-limit', value: name };
+  const lastName = cleanName(String(formData.get('lastName') ?? ''));
+  if (!name) return { error: 'name', value: name, lastName };
+  if (!take(`rename:${user.id}`, 10, HOUR)) return { error: 'rate-limit', value: name, lastName };
 
-  await prisma.user.update({ where: { id: user.id }, data: { name } });
+  await prisma.user.update({ where: { id: user.id }, data: { name, lastName } });
   revalidatePath('/', 'layout');
-  return { saved: true, value: name };
+  return { saved: true, value: name, lastName };
+}
+
+export type PasswordFormState = { error?: 'missing' | 'wrong' | 'short' | 'mismatch' | 'rate-limit'; saved?: boolean } | undefined;
+
+/** Changes the password. It needs the current one, and it logs the account out everywhere else. */
+export async function changePassword(_state: PasswordFormState, formData: FormData): Promise<PasswordFormState> {
+  const user = await getUser();
+  if (user.isDemo) redirect('/login');
+
+  const current = String(formData.get('current') ?? '');
+  const password = String(formData.get('password') ?? '');
+  if (!current) return { error: 'missing' };
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) return { error: 'short' };
+  if (password !== String(formData.get('confirm') ?? '')) return { error: 'mismatch' };
+  // Counted per account, so a stolen session cannot be used to guess the current password.
+  if (!take(`password:${user.id}`, 8, HOUR)) return { error: 'rate-limit' };
+
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!(await saveNewPassword(user.id, current, password, token))) return { error: 'wrong' };
+  return { saved: true };
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { NameForm } from '@/components/auth/NameForm';
+import { PasswordForm } from '@/components/auth/PasswordForm';
 import { MyGames } from '@/components/games/MyGames';
 import { getUser } from '@/lib/current-user';
 import { GAMES } from '@/lib/games';
@@ -22,7 +23,14 @@ export default async function SettingsPage() {
           <span className="text-muted">{t('Email')}</span> <span className="ml-2 break-all">{user.email}</span>
         </p>
         <div className="mt-4">
-          <NameForm current={user.name} />
+          <NameForm current={{ name: user.name, lastName: user.lastName }} />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="section-title">{t('Password')}</h2>
+        <div className="mt-4">
+          <PasswordForm />
         </div>
       </section>
 

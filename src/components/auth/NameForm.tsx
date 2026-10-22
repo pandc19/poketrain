@@ -4,25 +4,25 @@ import { useActionState } from 'react';
 import { renameAccount } from '@/app/settings/actions';
 import { MAX_NAME_LENGTH } from '@/lib/auth/rules';
 import { useT } from '@/lib/translate-client';
-import { SubmitButton } from './parts';
+import { Field, SubmitButton } from './parts';
 
-/** Change the name on the account. */
-export function NameForm({ current }: { current: string }) {
+/** Change the first and last name on the account. */
+export function NameForm({ current }: { current: { name: string; lastName: string } }) {
   const { t } = useT();
   const [state, action, pending] = useActionState(renameAccount, undefined);
   return (
     <form action={action} className="space-y-3">
-      <label className="block">
-        <span className="text-sm font-medium">{t('Name')}</span>
-        <input
-          name="name"
-          defaultValue={state?.value ?? current}
-          required
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t('First name')} name="name" defaultValue={state?.value ?? current.name} autoComplete="given-name" maxLength={MAX_NAME_LENGTH} />
+        <Field
+          label={t('Last name')}
+          name="lastName"
+          defaultValue={state?.lastName ?? current.lastName}
+          autoComplete="family-name"
+          required={false}
           maxLength={MAX_NAME_LENGTH}
-          autoComplete="name"
-          className="mt-1 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm outline-none focus:border-[var(--game-accent)]"
         />
-      </label>
+      </div>
       {state?.error && (
         <p role="alert" className="rounded-md border border-pending/40 bg-pending/10 px-3 py-2 text-sm text-pending">
           {state.error === 'name' ? t('Enter your name.') : t('Too many attempts. Try again in a few minutes.')}

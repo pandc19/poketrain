@@ -6,6 +6,7 @@ import { Header } from "@/components/Header";
 import { canUseAi } from "@/lib/ai/user-provider";
 import { ownedGameIds } from "@/lib/my-games";
 import { getUser } from "@/lib/current-user";
+import { firstName } from "@/lib/auth/rules";
 import { prisma } from "@/lib/db";
 import { GAMES } from "@/lib/games";
 import { getLang, getT } from "@/lib/i18n";
@@ -53,7 +54,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <LangProvider lang={lang}>
           <Header
-            user={{ name: user.name, admin: user.role === 'ADMIN', demo: user.isDemo }}
+            user={{ name: firstName(user.name), admin: user.role === 'ADMIN', demo: user.isDemo }}
             canAddGames={!user.isDemo}
             games={GAMES.filter((g) => owned.includes(g.id)).map((g) => ({
               id: g.id,
