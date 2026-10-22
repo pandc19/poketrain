@@ -17,6 +17,7 @@ import type { IvPlan, ParentPick } from '@/lib/breeding/ivs';
 import type { Lang } from '@/lib/i18n';
 import { useT } from '@/lib/translate-client';
 import { EditIcon, TrashIcon } from './ActionIcons';
+import { PokedexButton } from './PokemonInfoDialog';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 type RosterBuild = { speciesId: number; species: Named; moves: Named[] };
@@ -777,6 +778,7 @@ export function BreedingBoard({
           <div className="min-w-0 flex-1">
             <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
               {name(goal.species)}
+              <PokedexButton speciesId={goal.species.id} gameId={gameId} lang={lang} />
             </h3>
             {goal.moves.length > 0 && <p className="text-xs text-muted">{goal.moves.map(name).join(' · ')}</p>}
           </div>

@@ -37,6 +37,8 @@ export type RosterView = {
     | (Named & { types: string[]; baseStats: EvSpread | null; abilityOptions: (Named & { isHidden: boolean })[] })
     | null;
   formId: number | null;
+  /** The slug of its form when that is not the species' default one (Alolan, Aqua Breed…); null otherwise. */
+  formSlug: string | null;
   spriteUrl: string | null;
   types: string[];
   /** Abilities this species can actually have, for the editor and the legality flag. */
@@ -122,6 +124,7 @@ export async function loadRoster(
             select: {
               id: true,
               isDefault: true,
+              slug: true,
               spriteUrl: true,
               types: true,
               baseStats: true,
@@ -196,6 +199,7 @@ export async function loadRoster(
       finalSpecies: finalOf(r.finalSpecies, r.speciesId),
       genderRate: r.species.genderRate,
       formId: form?.id ?? null,
+      formSlug: form && !form.isDefault ? form.slug : null,
       spriteUrl: form?.spriteUrl ?? null,
       types: form?.types ?? [],
       abilityOptions,

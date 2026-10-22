@@ -123,3 +123,11 @@ export const SparklesIcon = (p: IconProps) => (
     <path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z" />
   </Svg>
 );
+
+/** An "i" in a circle: show the information about something. */
+export const InfoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </Svg>
+);

@@ -6,6 +6,7 @@ import { useDismissed } from '../useDismissed';
 import { Dialog } from '../Dialog';
 import { SearchInput } from '../SearchInput';
 import { ExpandIcon, MinusCircleIcon } from '../ActionIcons';
+import { PokedexButton } from '../PokemonInfoDialog';
 import { TeraBadge, TypeBadge } from '../TypeBadge';
 import { STAT_LABELS } from '../EvInputs';
 import type { EvEstimateInfo } from '../StatsEvs';
@@ -332,6 +333,7 @@ export function TeamView({
           <TeamDetail
             key={shown.id}
             p={shown}
+            gameId={gameId}
             lang={lang}
             tera={tera}
             info={estimateFor(shown)}
@@ -490,6 +492,7 @@ function HoldButton({
 /** One team member: the quick facts, the stats with arrows, and the EVs they imply. Remounted per Pokémon. */
 function TeamDetail({
   p,
+  gameId,
   lang,
   tera,
   info,
@@ -502,6 +505,7 @@ function TeamDetail({
   onRemove,
 }: {
   p: RosterView;
+  gameId: string;
   lang: Lang;
   tera: boolean;
   info: EvEstimateInfo | undefined;
@@ -668,6 +672,7 @@ function TeamDetail({
         </div>
         <div className="ml-auto flex flex-col items-end gap-2">
           <div className="flex items-center gap-1.5">
+            <PokedexButton speciesId={p.species.id} gameId={gameId} lang={lang} form={p.formSlug ?? ''} />
             <button
               type="button"
               onClick={onOpenDetails}

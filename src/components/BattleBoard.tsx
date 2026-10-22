@@ -11,6 +11,7 @@ import type { BattleOpponentView, CounterView, LearnWay, MoveView } from '@/lib/
 import type { Lang } from '@/lib/i18n';
 import { TYPE_NAMES_ES as TYPE_LABEL_ES } from '@/lib/pokemon-types';
 import { useT } from '@/lib/translate-client';
+import { PokedexButton } from './PokemonInfoDialog';
 
 type Named = { id: number; nameEn: string; nameEs: string };
 type MoveOption = Named & { type: string };
@@ -479,6 +480,13 @@ export function BattleBoard({
             </p>
           </div>
           <div className="flex items-center gap-1.5">
+            <PokedexButton
+              speciesId={o.species.id}
+              gameId={gameId}
+              lang={lang}
+              form={o.isDefaultForm ? '' : o.formSlug}
+              className={`${iconButton} text-muted hover:text-ink`}
+            />
             <button
               type="button"
               aria-pressed={o.defeated}

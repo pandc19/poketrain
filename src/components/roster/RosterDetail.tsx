@@ -8,6 +8,7 @@ import { AuditPanel } from '../AuditPanel';
 import { BoltIcon, EyeIcon, EyeOffIcon, SparklesIcon } from '../ActionIcons';
 import { AiHelp, AiUnavailable, useAiAccess } from '../AiAccess';
 import { ConfirmDialog } from '../Dialog';
+import { PokedexButton } from '../PokemonInfoDialog';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
 import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
@@ -533,6 +534,7 @@ export function RosterDetail({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold">{label(p.species)}</h2>
+            <PokedexButton speciesId={p.species.id} gameId={gameId} lang={lang} form={p.formSlug ?? ''} />
             <span className="readout text-xs text-muted">{numberLabel}</span>
             {p.finalSpecies && (
               <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">→ {label(p.finalSpecies)}</span>

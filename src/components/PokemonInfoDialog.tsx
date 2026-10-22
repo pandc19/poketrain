@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { InfoIcon } from './ActionIcons';
 import { Dialog } from './Dialog';
 import { PokeBallMark } from './PokeBallIcon';
 import { Sprite } from './Sprite';
@@ -356,5 +357,43 @@ export function PokemonInfoDialog({
         </div>
       )}
     </Dialog>
+  );
+}
+
+/** An icon button that opens the Pokédex information of a species in its own dialog. */
+export function PokedexButton({
+  speciesId,
+  gameId,
+  lang,
+  form = '',
+  className = 'flex h-8 w-8 items-center justify-center rounded-md border border-line text-muted hover:text-ink',
+}: {
+  speciesId: number;
+  gameId: string;
+  lang: Lang;
+  form?: string;
+  className?: string;
+}) {
+  const { t } = useT();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title={t('Open its Pokédex entry')}
+        aria-label={t('Open its Pokédex entry')}
+        className={className}
+      >
+        <InfoIcon />
+      </button>
+      <PokemonInfoDialog
+        speciesId={open ? speciesId : null}
+        gameId={gameId}
+        lang={lang}
+        form={form}
+        onClose={() => setOpen(false)}
+      />
+    </>
   );
 }
