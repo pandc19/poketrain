@@ -307,6 +307,7 @@ export const ES: Record<string, string> = {
   'There is no data to draw the graphs for this Pokémon.': 'No hay datos para dibujar los gráficos de este Pokémon.',
   'Remove from team': 'Quitar del equipo',
   'Open full details': 'Abrir detalles completos',
+  'Open its Pokédex entry': 'Abrir su entrada de la Pokédex',
   'Choosing one that is already in the team swaps the two places.': 'Si eliges uno que ya está en el equipo, los dos intercambian sus huecos.',
   'Empty this slot': 'Vaciar este hueco',
   'slot {n}': 'hueco {n}',

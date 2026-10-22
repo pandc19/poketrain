@@ -5,6 +5,7 @@ import { ConfirmDialog } from './Dialog';
 import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
 import { STAT_LABELS, STAT_ORDER } from './EvInputs';
+import { PokedexButton } from './PokemonInfoDialog';
 import { ComboInput, GenderControl, PokemonSprite, genderMark, PotentialSelect, type Gender } from './roster/parts';
 import { IV_STATS } from '@/lib/breeding/engine';
 import type { Lang } from '@/lib/i18n';
@@ -542,6 +543,7 @@ function BreederDetail({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold">{label(p.species)}</h2>
+            <PokedexButton speciesId={p.species.id} gameId={gameId} lang={lang} form={p.formSlug ?? ''} />
           {/* min-w-0 all the way down, so on a narrow screen the nickname box shrinks instead of pushing the page wide. */}
           <div className="ml-auto flex min-w-0 max-w-full items-center gap-2 text-xs">
             <label className="flex min-w-0 items-center gap-2 text-muted">
