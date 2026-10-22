@@ -46,6 +46,8 @@ export const ES: Record<string, string> = {
   'Cancel': 'Cancelar',
   'Catch': 'Capturar',
   'Switch between light and dark mode': 'Cambiar entre modo claro y oscuro',
+  'Light mode': 'Modo claro',
+  'Dark mode': 'Modo oscuro',
   'Catch rate': 'Ratio de captura',
   'Caught': 'Capturado',
   'Caught. Click to remove from your Pokédex': 'Capturado. Haz clic para quitarlo de tu Pokédex',
