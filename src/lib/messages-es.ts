@@ -324,6 +324,7 @@ export const ES: Record<string, string> = {
   'Could not change the team. Try again.': 'No se pudo cambiar el equipo. Inténtalo de nuevo.',
   'Written by AI': 'Escrito por IA',
   'AI': 'IA',
+  'Profile': 'Perfil',
   'Completed first': 'Completos primero',
   'Unfinished first': 'Sin terminar primero',
   'Name (A–Z)': 'Nombre (A–Z)',
