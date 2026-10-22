@@ -2,12 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useLayoutEffect } from 'react';
 import { useT } from '@/lib/translate-client';
+
+/** Set by a click on the switch; the page that mounts next opens at its top instead of at the old scroll offset. */
+let toTop = false;
 
 /** Switches between the breeding plans and the Pokémon kept to breed with, which share one menu entry. */
 export function BreedingSwitch({ gameId }: { gameId: string }) {
   const { t } = useT();
   const pathname = usePathname();
+  // Next keeps the scroll offset when the new page is still partly in view, which lands the other view halfway down.
+  useLayoutEffect(() => {
+    if (!toTop) return;
+    toTop = false;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
   const views = [
     { href: `/${gameId}/breeders`, label: t('Breeders') },
     { href: `/${gameId}/breeding`, label: t('Plans') },
@@ -22,6 +32,10 @@ export function BreedingSwitch({ gameId }: { gameId: string }) {
           <Link
             key={v.href}
             href={v.href}
+            scroll={false}
+            onClick={() => {
+              if (!on) toTop = true;
+            }}
             aria-current={on ? 'page' : undefined}
             className={`px-4 py-1.5 ${on ? 'bg-surface-2 font-semibold' : 'text-muted hover:text-ink'}`}
           >
