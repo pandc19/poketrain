@@ -12,7 +12,7 @@ import { TYPE_NAMES_ES } from './pokemon-types';
  *
  * Bump this when a rule changes, so an audit made by older rules is told apart from a new one.
  */
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 
 type Stat = keyof EvSpread;
 type Say = { en: string; es: string };
@@ -41,6 +41,11 @@ export type RuleInput = {
   natures: RuleNature[];
   /** The nature effect the game applies now (a given Mint, else its nature, else the one aimed for). */
   effectNature: RuleNature | null;
+  /**
+   * The nature effect it will have once the Mint fixed or chosen is given: the build is for that one.
+   * Defaults to `effectNature`.
+   */
+  plannedNature?: RuleNature | null;
   /** Moves the player fixed: they stay, and the rest is chosen to go with them. */
   fixedMoves: string[];
   currentEvs: EvSpread | null;
@@ -297,7 +302,8 @@ function spreadFor(input: RuleInput, role: ReturnType<typeof roleOf>): EvSpread 
 /** The audit parts asked for, worked out from game data alone. */
 export function ruleAudit(input: RuleInput): RuleOutput {
   const { ask, lang } = input;
-  const role = roleOf(input);
+  // The role is read with the effect it will have: a Mint fixed or chosen is part of the build.
+  const role = roleOf({ ...input, effectNature: input.plannedNature ?? input.effectNature });
   const out: RuleOutput = {};
   const unused: Stat = role.offense === 'attack' ? 'specialAttack' : 'attack';
   const ideal = idealNature(role, input.natures);

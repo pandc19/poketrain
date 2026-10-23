@@ -10,25 +10,30 @@ export const AuditLocksSchema = z.object({
   moves: z.array(MovePick).max(4).optional(),
   /** The Tera type: the AI's suggestion the player fixed, or one they chose themselves (no reason). */
   teraType: z.object({ type: z.enum(TYPE_SLUGS as [string, ...string[]]), reason: z.string().max(1000) }).optional(),
-  /** The Mint nature the player settled on (English name). */
-  mint: z.object({ nature: z.string().min(1).max(40), reason: z.string().max(1000) }).optional(),
+  /**
+   * The Mint nature the player settled on (English name). `change` is set when the answer was to use that
+   * Mint (rather than that none is needed): it is still to be chosen and given.
+   */
+  mint: z.object({ nature: z.string().min(1).max(40), reason: z.string().max(1000), change: z.boolean().optional() }).optional(),
 });
 export type AuditLocks = z.infer<typeof AuditLocksSchema>;
 
 /**
- * The fixed Mint, when it still holds: the Pokémon has that Mint, or has none and
- * its own nature is the one chosen ("no Mint needed"). Otherwise it is stale
- * (the Mint was never given, or the nature changed) and the audit decides again.
+ * The fixed Mint, when it still holds. With a Mint chosen (given or not), it holds when that is the one
+ * fixed. With none chosen, a fixed change is still to be applied, and "no Mint needed" holds while its own
+ * nature is the one fixed. Otherwise it is stale (another Mint was chosen, or the nature changed) and the
+ * audit decides again.
  */
 export function activeMint(
   locks: AuditLocks | null | undefined,
-  mintNature: string | null | undefined,
+  mintChosen: string | null | undefined,
   realNature: string | null | undefined
 ) {
   const fixed = locks?.mint;
   if (!fixed) return undefined;
   const same = (a: string | null | undefined, b: string) => a != null && a.toLowerCase() === b.toLowerCase();
-  return same(mintNature ?? realNature, fixed.nature) ? fixed : undefined;
+  if (mintChosen) return same(mintChosen, fixed.nature) ? fixed : undefined;
+  return fixed.change || same(realNature, fixed.nature) ? fixed : undefined;
 }
 
 type Moves = { move: string; reason: string }[];

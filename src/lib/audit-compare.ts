@@ -15,8 +15,10 @@ export type Current = {
   /** English names of its moves. */
   moves: string[];
   tera: string | null;
-  /** English name of the nature of the Mint it holds. */
+  /** English name of the nature of the Mint it was given (one only chosen does not count). */
   mintGiven: string | null;
+  /** English name of the nature of the Mint chosen in its Mint field, given or not. */
+  mintChosen: string | null;
   /** English name of its own nature. */
   realNature: string | null;
   /** Its EV plan as text, in the same format the audit writes. */
@@ -27,7 +29,8 @@ export type AuditSuggestions = {
   item?: { name: string; reason: string; same: boolean };
   moves?: { move: string; reason: string; has: boolean }[];
   tera?: { type: string; reason: string; same: boolean };
-  mint?: { nature: string; keep: boolean; reason: string; same: boolean };
+  /** `target` is the Mint its Mint field should hold (null: none), the one Apply chooses. */
+  mint?: { nature: string; keep: boolean; reason: string; target: string | null; same: boolean };
   nature?: { nature: string; reason: string; same: boolean };
   evs?: { spread: string; same: boolean };
 };
@@ -54,7 +57,9 @@ export function auditSuggestions(audit: AuditLike | null | undefined, now: Curre
     // An answer saved before the Pokémon changed ("keep" a Mint it never had) says nothing now.
     const stale = m.keep && !hasMint && !same(m.nature, now.realNature);
     if (!stale) {
-      out.mint = { ...m, same: m.keep ? true : same(m.nature, now.mintGiven) };
+      // Keeping the effect means keeping the Mint it was given, or choosing none; otherwise that nature's Mint.
+      const target = m.keep ? now.mintGiven : m.nature;
+      out.mint = { ...m, target, same: target == null ? now.mintChosen == null : same(target, now.mintChosen) };
     }
   }
   if (audit.nature) {

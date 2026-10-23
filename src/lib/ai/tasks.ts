@@ -24,7 +24,7 @@ import { ivAssumption, potentialLevel } from '../potential';
 import { loadChart } from '../battle/load';
 import type { LearnableMoves } from '../breeding/moves';
 
-const PROMPT_VERSION = 23;
+const PROMPT_VERSION = 24;
 
 const SPANISH_RULES =
   'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
@@ -153,10 +153,11 @@ function natureEffect(name: string, natures: RuleNature[]): string {
  * nothing yet), and the effect the game applies because of that. Models mixed these up when they were
  * three loose names.
  */
-function describeNature(p: RosterView, natures: RuleNature[]) {
+function describeNature(p: RosterView, natures: RuleNature[], planned: string | null) {
   const given = mintInForce(p);
   const chosen = !given && p.mintNature ? p.mintNature : null;
   const applied = given ?? p.currentNature ?? p.targetNature;
+  const changes = planned != null && planned.toLowerCase() !== applied?.nameEn.toLowerCase();
   return {
     itsNature: p.currentNature ? natureEffect(p.currentNature.nameEn, natures) : null,
     // Not caught or not recorded yet: the nature the player is aiming for stands in for it.
@@ -167,8 +168,19 @@ function describeNature(p: RosterView, natures: RuleNature[]) {
         ? `none given (a ${chosen.nameEn} Mint is chosen but not given yet, so it changes nothing)`
         : 'none',
     effectTheGameApplies: applied ? natureEffect(applied.nameEn, natures) : null,
+    // A Mint chosen or fixed but not given yet: the stats will change to this, so the build is for it.
+    ...(changes ? { effectItWillHave: `${natureEffect(planned, natures)}, once that Mint is given` } : {}),
   };
 }
+
+/**
+ * The nature whose effect the build is for: the Mint the player fixed in the audit, else the one chosen in
+ * its Mint field (given or not, it is the plan), else the nature it has (or is aiming for).
+ */
+const plannedNature = (
+  p: Pick<RosterView, 'mintNature' | 'currentNature' | 'targetNature'>,
+  mintLock: { nature: string } | undefined
+): string | null => mintLock?.nature ?? p.mintNature?.nameEn ?? (p.currentNature ?? p.targetNature)?.nameEn ?? null;
 
 /**
  * The EVs it has, as the team view reads them: from its stats, with this plan in mind. The stats only say a
@@ -198,7 +210,7 @@ const statLine = (v: Record<keyof typeof STAT_NAMES, number>) =>
   Object.fromEntries(Object.entries(STAT_NAMES).map(([k, name]) => [name, v[k as keyof typeof STAT_NAMES]]));
 
 /** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
-function describeBuild(p: RosterView, natures: RuleNature[], hasEvs = true) {
+function describeBuild(p: RosterView, natures: RuleNature[], planned: string | null, hasEvs = true) {
   const gap = hasEvs && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
   // A Pokémon that has yet to evolve is judged as the stage it is meant to end as: that is what the EVs,
   // moves and item are for. Its stats, ability and level are still those of the stage it is at now.
@@ -218,7 +230,7 @@ function describeBuild(p: RosterView, natures: RuleNature[], hasEvs = true) {
     level: p.level,
     // The stats it actually has right now, as the game shows them. These are NOT EVs.
     currentStats: p.currentStats ? statLine(p.currentStats) : null,
-    natureAndMint: describeNature(p, natures),
+    natureAndMint: describeNature(p, natures, planned),
     ability: p.ability?.nameEn ?? null,
     heldItem: p.item?.nameEn ?? p.itemNote,
     ...(hasEvs
@@ -251,7 +263,14 @@ function describeBuild(p: RosterView, natures: RuleNature[], hasEvs = true) {
 }
 
 /** What the rules need to know about the audit being made, once it has been worked out what to ask. */
-type RulesContext = { pool: LearnableMoves; ask: AuditAsk; fixedMoves: string[]; freeEvs: boolean };
+type RulesContext = {
+  pool: LearnableMoves;
+  ask: AuditAsk;
+  fixedMoves: string[];
+  freeEvs: boolean;
+  /** The nature whose effect the build is for (see `plannedNature`). */
+  planned: string | null;
+};
 
 export async function auditBuild(
   provider: AuditSource,
@@ -269,7 +288,13 @@ export async function auditBuild(
   const hasTarget = hasEvs && game.features.evTarget;
   // Every nature with what it raises and lowers, so the model reads effects from data rather than memory.
   const natures: RuleNature[] = await prisma.nature.findMany({ select: { nameEn: true, increased: true, decreased: true } });
-  const build = describeBuild(p, natures, hasEvs);
+  const locks = p.auditLocks;
+  const hasTera = game.features.teraType;
+  const hasMint = gameHasMints(game);
+  // What the player has fixed is not asked again, by any kind of audit: it is kept, and the rest is worked out.
+  const { ask, mintLock, planFixed, nothingToAsk } = auditAsk(p, { hasEvs, hasTera, hasMint });
+  const planned = hasMint ? plannedNature(p, mintLock) : (p.currentNature ?? p.targetNature)?.nameEn ?? null;
+  const build = describeBuild(p, natures, planned, hasEvs);
   const illegal = p.moves.filter((m) => m.legal === false).map((m) => m.move!.nameEn);
 
   // Everything it can legally have in this game, so suggestions come from real options.
@@ -284,19 +309,13 @@ export async function auditBuild(
   const details = new Map([...pool.egg, ...pool.other].map((m) => [m.nameEn, describeMove(m)]));
   build.moves = build.moves.map((m) => ({ ...m, name: details.get(m.name ?? '') ?? m.name }));
 
-  const locks = p.auditLocks;
-  const hasTera = game.features.teraType;
-  const hasMint = gameHasMints(game);
-  // What the player has fixed is not asked again, by any kind of audit: it is kept, and the rest is worked out.
-  const { ask, mintLock, planFixed, nothingToAsk } = auditAsk(p, { hasEvs, hasTera, hasMint });
-
   /** What is fixed, said once so the model chooses the rest to go with it. */
   const fixedNotes = [
     planFixed ? 'EV plan (fixed): targetEvs is the spread it finishes with. Choose the rest for those EVs.' : '',
     locks?.heldItem ? `Held item (fixed): ${locks.heldItem.item}.` : '',
     (locks?.moves?.length ?? 0) >= 4 ? `Moves (fixed): ${locks!.moves!.map((m) => m.move).join(', ')}.` : '',
     hasTera && locks?.teraType ? `Tera type (fixed): ${locks.teraType.type}.` : '',
-    mintLock ? `Mint (fixed): ${mintLock.nature}.` : '',
+    mintLock ? `Mint (fixed): ${mintLock.nature}. Choose the rest for its effect.` : '',
   ].filter(Boolean);
 
   // With every part fixed there is nothing to ask: the audit is the fixed parts, and it is saved as such rather
@@ -312,12 +331,16 @@ export async function auditBuild(
       schema: buildAuditSchema(ask, hasEvs),
       finish: async (raw) => {
         const locks = p.auditLocks;
+        // The Mint as the card shows it, fixed or not: kept only when the effect in force is already the one named,
+        // so a fixed change stays a change until that Mint is given.
+        const settledMint = (m: { nature: string; reason: string } | undefined) =>
+          m ? settleMint(m, (mintInForce(p) ?? p.currentNature ?? p.targetNature)?.nameEn, natures) : undefined;
         // What the player fixed is kept as it is; the model only filled the rest.
         const parts = {
           heldItem: locks?.heldItem ?? raw.heldItem,
           recommendedMoves: withFixedMoves(locks?.moves, raw.recommendedMoves ?? []),
           ...(hasTera ? { teraType: locks?.teraType ?? raw.teraType } : {}),
-          ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : raw.mint ? settleMint(raw.mint, (mintInForce(p) ?? p.currentNature ?? p.targetNature)?.nameEn, natures) : undefined } : {}),
+          ...(hasMint ? { mint: settledMint(mintLock ?? raw.mint) } : {}),
           ...(raw.nature ? { nature: raw.nature } : {}),
         };
         // In Spanish, game names the model left in English inside its sentences are put in the game's own Spanish.
@@ -358,7 +381,7 @@ export async function auditBuild(
       schemaName: 'build_audit',
       // Everything is fixed: nothing is left for the model to decide.
       local: rules
-        ? await rules({ pool, ask, fixedMoves: locks?.moves?.map((m) => m.move) ?? [], freeEvs: hasTarget })
+        ? await rules({ pool, ask, fixedMoves: locks?.moves?.map((m) => m.move) ?? [], freeEvs: hasTarget, planned })
         : nothingToAsk
           ? ({} as Partial<BuildAuditRaw>)
           : undefined,
@@ -372,6 +395,12 @@ export async function auditBuild(
           'The data below is its current state as the player recorded it; trust it over assumptions, and where a value is null it is not known. ' +
           'When ability is not null it is part of the build, so every part below must work with it: choose the item, moves, nature, EVs and Tera type that make use of it, ' +
           'avoid ones it makes pointless or works against, and name the ability in a reason when it is why you chose something. When it is null, do not assume one. ' +
+          'Build every part for the stats it will have once its nature effect is settled, not only as it is now (a Mint changes the stats): ' +
+          (ask.mint
+            ? 'decide the mint first, and choose the rest for the effect of the nature you give there. '
+            : ask.nature
+              ? 'decide the nature first, and choose the rest for its effect. '
+              : 'that is natureAndMint.effectItWillHave when it is there, otherwise natureAndMint.effectTheGameApplies. ') +
           'Answer only the parts asked for below.',
         JSON.stringify({ pokemon: build, legalMovePool }, null, 2),
         p.finalSpecies
@@ -398,16 +427,16 @@ export async function auditBuild(
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
           : '',
         ask.heldItem
-          ? 'heldItem: the best held item for it as it is now. If the one it holds is already the best, name it and say to keep it.'
+          ? 'heldItem: the best held item for it. If the one it holds is already the best, name it and say to keep it.'
           : '',
         ask.moves
           ? (locks?.moves?.length
               ? `The player has fixed these moves, so they stay: ${locks.moves.map((m) => m.move).join(', ')}. ` +
                 `recommendedMoves lists only the other ${4 - locks.moves.length} to add, chosen to work with the fixed ones (no duplicated role). `
               : '') +
-            `recommendedMoves: the best four moves for it given its nature${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
+            `recommendedMoves: the best four moves for it given the nature effect it will have${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
             'Prefer moves it already knows over ones it would have to get. ' +
-            'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and its nature does not raise it, ' +
+            'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and that effect does not raise it, ' +
             'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
             'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.'
           : '',
@@ -534,7 +563,7 @@ export async function quickAudit(game: GameConfig, lang: Lang, profileId: string
   const baseStats = final?.baseStats ?? p.baseStats;
   if (!baseStats) throw new AiError('There is not enough data on this Pokémon to suggest how to set it up.');
 
-  return auditBuild(RULES_SOURCE, game, lang, profileId, p, true, false, async ({ pool, ask, fixedMoves, freeEvs }) => {
+  return auditBuild(RULES_SOURCE, game, lang, profileId, p, true, false, async ({ pool, ask, fixedMoves, freeEvs, planned }) => {
     const [natures, itemRows, chart] = await Promise.all([
       prisma.nature.findMany({ select: { nameEn: true, increased: true, decreased: true } }),
       game.features.heldItems ? prisma.item.findMany({ where: { slug: { in: RULE_ITEMS } }, select: { slug: true, nameEn: true } }) : [],
@@ -560,6 +589,7 @@ export async function quickAudit(game: GameConfig, lang: Lang, profileId: string
       moves,
       natures,
       effectNature,
+      plannedNature: natures.find((n) => n.nameEn === planned) ?? null,
       fixedMoves,
       currentEvs: p.currentEvs,
       freeEvs,

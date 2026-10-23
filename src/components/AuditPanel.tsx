@@ -142,8 +142,8 @@ export function AuditPanel({
   compare,
   localize,
   currentTera,
-  onMint,
   mintGiven,
+  mintChosen,
   realNature,
   lockedPlan,
   onLockPlan,
@@ -168,10 +168,10 @@ export function AuditPanel({
   currentTera?: string | null;
   /** The nature (English name) of the Mint it was given, if any (one only chosen does not count): "keep" is not said of a Mint it does not have. */
   mintGiven?: string | null;
+  /** The nature (English name) of the Mint chosen in its Mint field, given or not. */
+  mintChosen?: string | null;
   /** Its own nature (English name), what counts when it has no Mint. */
   realNature?: string | null;
-  /** Records the suggested Mint as given (true) or takes it back (false). */
-  onMint?: (nature: string, given: boolean) => void;
   /** The EV spread the player has fixed as the plan, if any. */
   lockedPlan?: string | null;
   onLockPlan?: (spread: string) => void;
@@ -201,11 +201,16 @@ export function AuditPanel({
   const hasMint = mintGiven != null;
   const mintName = (nature: string) => (localize ? localize('mint', nature) : nature);
   // A fixed Mint only counts while it still holds; an answer saved before that changed is not shown.
-  const mintFixed = activeMint(locks, mintGiven, realNature);
+  const mintFixed = activeMint(locks, mintChosen, realNature);
   const sameNature = (a?: string | null, b?: string | null) => a != null && b != null && a.toLowerCase() === b.toLowerCase();
   const staleMint =
     !mintFixed && audit.mint != null && !hasMint && audit.mint.keep && !sameNature(audit.mint.nature, realNature);
-  const mintShown = mintFixed ? { ...mintFixed, keep: true } : audit.mint && !staleMint ? audit.mint : undefined;
+  // A fixed change is still a change until it is given; a fixed "keep" or "no Mint needed" is kept as such.
+  const mintShown = mintFixed
+    ? { ...mintFixed, keep: !mintFixed.change && sameNature(mintFixed.nature, mintGiven ?? realNature) }
+    : audit.mint && !staleMint
+      ? audit.mint
+      : undefined;
   const recommended = audit.recommendedMoves ?? [];
   const without = (key: keyof AuditLocks): AuditLocks => {
     const rest = { ...locks };
@@ -233,9 +238,8 @@ export function AuditPanel({
     );
   const toggleMint = () => {
     if (mintFixed || !mintShown) return setLocks(without('mint'));
-    // A Mint that is to change is chosen when it is fixed; it counts as given only once the player marks it.
-    if (!mintShown.keep) onMint?.(mintShown.nature, true);
-    setLocks({ ...locks, mint: { nature: mintShown.nature, reason: mintShown.reason } });
+    // Fixing it only keeps the answer: the Mint is chosen in its field (Apply there), not here.
+    setLocks({ ...locks, mint: { nature: mintShown.nature, reason: mintShown.reason, ...(mintShown.keep ? {} : { change: true }) } });
   };
   const languageName = (code: string) => (code === 'en' ? t('English') : t('Spanish'));
   // The saved answer is never translated: switching language keeps it until it is re-run.
