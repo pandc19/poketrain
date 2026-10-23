@@ -9,7 +9,7 @@ import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
 import { auditAsk, gameHasMints } from '../audit-ask';
 import { withFixedMoves } from '../audit-locks';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
-import { describePlan, legalPlan, trainingItemsFor } from '../ev-plan';
+import { describePlan, fillPlan, legalPlan, trainingItemsFor } from '../ev-plan';
 import { syncEvStatus } from '../ev-sync';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
@@ -263,7 +263,9 @@ export async function auditBuild(
         if (!hasEvs) return parts;
         // The spread is the model's proposal (or the player's fixed plan); what it means for this Pokémon is worked out here.
         // A fixed plan is kept, only made legal again (amounts in fours, 252 and 508 caps).
-        const plan = legalPlan((p.evs ?? raw.evPlan?.spread) as EvSpread, p.currentEvs, !hasTarget);
+        const proposed = legalPlan((p.evs ?? raw.evPlan?.spread) as EvSpread, p.currentEvs, !hasTarget);
+        // The model's leftover EVs are spent too (252 / 252 / 4, not 252 / 252): a plan the player fixed is kept as it is.
+        const plan = p.evs ? proposed : fillPlan(proposed);
         if (p.evs && formatEvs(plan) !== formatEvs(p.evs)) {
           // The fixed plan was saved before these rules: save it as it now reads.
           await prisma.rosterPokemon.update({ where: { id: p.id }, data: { evs: plan } });
@@ -314,7 +316,8 @@ export async function auditBuild(
             (hasTarget
               ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ') +
-            'The EVs you add in total must not go over evsLeftToTrain, and it is fine to leave some unspent: ' +
+            'The EVs you add in total must not go over evsLeftToTrain. ' +
+            'Spend all of them: the two stats its role needs most get 252 each, and the last 4 go to HP (or the bulk stat it benefits from). ' +
             'put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed). ' +
             'Do not say which Pokémon to battle, or give vitamin counts or EV arithmetic: the app works those out.' +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')

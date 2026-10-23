@@ -40,6 +40,20 @@ export function legalPlan(
   return plan;
 }
 
+/**
+ * Spends the EVs a model left over: under 508 means EVs that would give stats for free, so the rest goes in
+ * fours to HP, then Defense, then Sp. Def (the bulk stats), never past 252 in a stat. Only for a spread
+ * a model proposed: a plan the player wrote is theirs and is not touched.
+ */
+export function fillPlan(plan: EvSpread): EvSpread {
+  const filled = { ...plan };
+  for (const key of ['hp', 'defense', 'specialDefense'] as const) {
+    const room = Math.min(MAX_STAT - filled[key], MAX_TOTAL - evTotal(filled));
+    if (room >= 4) filled[key] += room - (room % 4);
+  }
+  return filled;
+}
+
 /** The texts the audit shows for an EV plan, worked out here instead of trusted to the model. */
 export function describePlan(plan: EvSpread, current: EvSpread | null, nothing: string) {
   const gap = evGap(plan, current);
