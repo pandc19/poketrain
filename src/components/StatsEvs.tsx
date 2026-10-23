@@ -1,5 +1,6 @@
 'use client';
 
+import { Sparkles } from '@/lib/sparkle';
 import { useState } from 'react';
 import { NO_EVS, STAT_LABELS, STAT_ORDER, cleanNumber } from './EvInputs';
 import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/iv-ratings';
@@ -83,15 +84,8 @@ export function EvGraph({
         if (evs[key] < 252 || over.includes(key)) return null;
         const p = point(i, 1);
         return (
-          <g key={key} className="hex-shine">
-            <circle cx={p.x} cy={p.y} r="8" fill="#facc15" fillOpacity="0.28" />
-            <circle cx={p.x} cy={p.y} r="3.8" fill="#fde047" stroke="#ca8a04" strokeWidth="0.8" />
-            {/* a four-point glint */}
-            <path
-              d={`M${p.x} ${p.y - 9} L${p.x + 1.6} ${p.y - 1.6} L${p.x + 9} ${p.y} L${p.x + 1.6} ${p.y + 1.6} L${p.x} ${p.y + 9} L${p.x - 1.6} ${p.y + 1.6} L${p.x - 9} ${p.y} L${p.x - 1.6} ${p.y - 1.6} Z`}
-              fill="#fef08a"
-              fillOpacity="0.9"
-            />
+          <g key={key}>
+            <Sparkles cx={p.x} cy={p.y} />
           </g>
         );
       })}

@@ -236,6 +236,7 @@ body {
   transform-box: fill-box;
   transform-origin: center;
   animation: hex-shine 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px #facc15);
 }
 
 @keyframes hex-shine {

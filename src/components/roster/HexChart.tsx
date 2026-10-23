@@ -1,5 +1,6 @@
 'use client';
 
+import { Sparkles } from '@/lib/sparkle';
 import type { EvSpread } from '@/lib/import/evs';
 
 type Key = keyof EvSpread;
@@ -60,15 +61,8 @@ export function HexChart({
           if (!shine.includes(key)) return null;
           const [x, y] = point(i, R).split(',').map(Number);
           return (
-            <g key={key} className="hex-shine">
-              <circle cx={x} cy={y} r={9} fill="#facc15" fillOpacity={0.28} />
-              <circle cx={x} cy={y} r={4.5} fill="#fde047" stroke="#ca8a04" strokeWidth={1} />
-              {/* a four-point glint */}
-              <path
-                d={`M${x} ${y - 11} L${x + 2} ${y - 2} L${x + 11} ${y} L${x + 2} ${y + 2} L${x} ${y + 11} L${x - 2} ${y + 2} L${x - 11} ${y} L${x - 2} ${y - 2} Z`}
-                fill="#fef08a"
-                fillOpacity={0.9}
-              />
+            <g key={key}>
+              <Sparkles cx={x} cy={y} scale={1.2} />
             </g>
           );
         })}
