@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describePlan, fillPlan, legalPlan } from '@/lib/ev-plan';
+import { describePlan, legalPlan, shapePlan } from '@/lib/ev-plan';
 
 const evs = (hp = 0, attack = 0, defense = 0, specialAttack = 0, specialDefense = 0, speed = 0) => ({
   hp,
@@ -113,16 +113,31 @@ describe('withFixedMoves', () => {
   });
 });
 
-describe('fillPlan', () => {
-  it('spends the last 6 of a 252 / 252 spread on HP', () => {
-    expect(fillPlan(evs(0, 252, 0, 0, 0, 252))).toEqual(evs(6, 252, 0, 0, 0, 252));
+describe('shapePlan', () => {
+  it('finishes the two main stats at 252 and spends the last 6 on HP', () => {
+    expect(shapePlan(evs(0, 252, 0, 0, 0, 252), null)).toEqual(evs(6, 252, 0, 0, 0, 252));
   });
 
-  it('leaves a full spread alone', () => {
-    expect(fillPlan(evs(6, 252, 0, 0, 0, 252))).toEqual(evs(6, 252, 0, 0, 0, 252));
+  it('takes a scattered spread to 252 / 252 in its two biggest stats', () => {
+    // A model's 200 Atk / 160 Spe / 150 HP becomes 252 Atk / 252 Spe, and the 6 left go to HP, where it put its next EVs.
+    expect(shapePlan(evs(150, 200, 0, 0, 0, 160), null)).toEqual(evs(6, 252, 0, 0, 0, 252));
   });
 
-  it('never goes over 252 in a stat', () => {
-    expect(fillPlan(evs(252, 252, 0, 0, 0, 0))).toEqual(evs(252, 252, 6, 0, 0, 0));
+  it('puts the last 6 where the spread put its third stat', () => {
+    expect(shapePlan(evs(0, 252, 0, 0, 4, 252), null)).toEqual(evs(0, 252, 0, 0, 6, 252));
+  });
+
+  it('keeps EVs it already has, and gives the second main stat what is left', () => {
+    // 100 in HP cannot be taken back: Attack still gets 252, Speed the 158 left.
+    expect(shapePlan(evs(0, 252, 0, 0, 0, 252), evs(100, 40))).toEqual(evs(100, 252, 0, 0, 0, 158));
+  });
+
+  it('still reaches 252 / 252 when what it has leaves room', () => {
+    expect(shapePlan(evs(0, 252, 0, 0, 0, 252), evs(4, 120, 0, 0, 0, 60))).toEqual(evs(6, 252, 0, 0, 0, 252));
+  });
+
+  it('on a tie, counts a stat it already has full as one of the two', () => {
+    // Attack, Defense and Speed all proposed at 252, Defense already full: Defense and Attack are the two, Speed gets the 6.
+    expect(shapePlan(evs(0, 252, 252, 0, 0, 252), evs(0, 0, 252))).toEqual(evs(0, 252, 252, 0, 0, 6));
   });
 });

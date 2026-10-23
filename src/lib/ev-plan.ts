@@ -33,17 +33,27 @@ export function legalPlan(
 }
 
 /**
- * Spends the EVs a model left over: under 510 means EVs that would give stats for free, so the rest goes
- * to HP, then Defense, then Sp. Def (the bulk stats), never past 252 in a stat. Only for a spread
- * a model proposed: a plan the player wrote is theirs and is not touched.
+ * Shapes a spread a model or the rules proposed the way a finished Pokémon is built: its two main stats (the
+ * two it proposed most for) at 252 and what is left of the 510, 6, in a third. Where EVs are hard to change,
+ * `current` is what it already has and stays: the two main stats still go as high as the 510 allows, so the
+ * EVs that went elsewhere come out of the second one. Only for a spread proposed for the player: a plan the
+ * player fixed is theirs and is not touched.
  */
-export function fillPlan(plan: EvSpread): EvSpread {
-  const filled = { ...plan };
-  for (const key of ['hp', 'defense', 'specialDefense'] as const) {
-    const room = Math.min(MAX_STAT - filled[key], MAX_TOTAL - evTotal(filled));
-    if (room > 0) filled[key] += room;
-  }
-  return filled;
+export function shapePlan(proposed: EvSpread, current: EvSpread | null): EvSpread {
+  const floor = (key: keyof EvSpread) => Math.min(MAX_STAT, current?.[key] ?? 0);
+  // Most proposed first; on a tie, the one it already has more in (it costs nothing to finish).
+  const order = [...KEYS].sort((a, b) => proposed[b] - proposed[a] || floor(b) - floor(a));
+  const plan = Object.fromEntries(KEYS.map((key) => [key, floor(key)])) as EvSpread;
+  const fill = (key: keyof EvSpread) => {
+    plan[key] = Math.min(MAX_STAT, plan[key] + Math.max(0, MAX_TOTAL - evTotal(plan)));
+  };
+  const [first, second, ...rest] = order;
+  fill(first);
+  fill(second);
+  // The leftover goes where the spread put its next EVs, else to the bulk stats (HP, Defense, Sp. Def).
+  const third = [...rest.filter((key) => proposed[key] > 0), 'hp', 'defense', 'specialDefense', ...rest] as (keyof EvSpread)[];
+  for (const key of third) if (key !== first && key !== second) fill(key);
+  return plan;
 }
 
 /** The texts the audit shows for an EV plan, worked out here instead of trusted to the model. */

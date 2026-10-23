@@ -9,22 +9,22 @@ import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
 import { auditAsk, gameHasMints } from '../audit-ask';
 import { withFixedMoves } from '../audit-locks';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
-import { describePlan, fillPlan, legalPlan, trainingItemsFor } from '../ev-plan';
+import { describePlan, legalPlan, shapePlan, trainingItemsFor } from '../ev-plan';
 import { syncEvStatus } from '../ev-sync';
 import type { Lang } from '../i18n';
 import { ivRating } from '../iv-ratings';
-import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
 import { type AuditAsk, type BuildAuditRaw, BilingualLocationSchema, type LocationResult, buildAuditSchema } from './schema';
 import { localizeNames } from './names';
 import { mintInForce, settleMint } from '../mint';
 import { AiError, type AiProvider, type ModelTier } from './types';
 import { RULES_VERSION, ruleAudit, type RuleMove, type RuleNature } from '../audit-rules';
-import { MAX_EV_TOTAL } from '../ev-estimate';
+import { MAX_EV_TOTAL, estimateEvRange } from '../ev-estimate';
+import { ivAssumption, potentialLevel } from '../potential';
 import { loadChart } from '../battle/load';
 import type { LearnableMoves } from '../breeding/moves';
 
-const PROMPT_VERSION = 22;
+const PROMPT_VERSION = 23;
 
 const SPANISH_RULES =
   'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
@@ -170,6 +170,29 @@ function describeNature(p: RosterView, natures: RuleNature[]) {
   };
 }
 
+/**
+ * The EVs it has, as the team view reads them: from its stats, with this plan in mind. The stats only say a
+ * range of EVs, and where the plan's amount is inside it, it is taken as the amount. The EVs on record were
+ * read with the plan saved at the time (none, before one is fixed), so they can be short of a plan the audit
+ * proposes although the stats already show it. EVs typed in, not read from stats, are taken as they are.
+ */
+function evsForPlan(p: RosterView, plan: EvSpread, natures: RuleNature[]): EvSpread | null {
+  if (!p.currentStats || !p.baseStats || !p.currentEvsEstimated) return p.currentEvs;
+  // The nature effect the stats were read under, as when they were saved.
+  const read = p.statsNature ?? mintInForce(p) ?? p.currentNature ?? p.targetNature;
+  const nature = read ? (natures.find((n) => n.nameEn === read.nameEn) ?? null) : null;
+  return estimateEvRange({
+    stats: p.currentStats,
+    level: p.level,
+    baseStats: p.baseStats,
+    nature,
+    ivsLow: ivAssumption(p.potential).low,
+    ratings: p.ivRatings,
+    plan,
+    maxed: p.maxedEvs,
+  }).estimate;
+}
+
 /** All six values with their stat names, so a stat can never be read as an EV or the other way round. */
 const statLine = (v: Record<keyof typeof STAT_NAMES, number>) =>
   Object.fromEntries(Object.entries(STAT_NAMES).map(([k, name]) => [name, v[k as keyof typeof STAT_NAMES]]));
@@ -308,15 +331,18 @@ export async function auditBuild(
         // The spread is the model's proposal (or the player's fixed plan); what it means for this Pokémon is worked out here.
         // A fixed plan is kept, only made legal again (252 and 510 caps).
         const proposed = legalPlan((p.evs ?? raw.evPlan?.spread) as EvSpread, p.currentEvs, !hasTarget);
-        // The model's leftover EVs are spent too (252 / 252 / 6, not 252 / 252): a plan the player fixed is kept as it is.
-        const plan = p.evs ? proposed : fillPlan(proposed);
+        // A proposed spread finishes two stats at 252 and spends the last 6 (where EVs are hard to change, as far as
+        // what it has allows): a plan the player fixed is kept as it is.
+        const plan = p.evs ? proposed : shapePlan(proposed, hasTarget ? null : p.currentEvs);
         if (p.evs && formatEvs(plan) !== formatEvs(p.evs)) {
           // The fixed plan was saved before these rules: save it as it now reads.
           await prisma.rosterPokemon.update({ where: { id: p.id }, data: { evs: plan } });
           await syncEvStatus(prisma, p.id);
         }
-        const { spread, toTrain } = describePlan(plan, p.currentEvs, lang === 'es' ? 'nada' : 'nothing');
-        const gap = evGap(plan, p.currentEvs);
+        // What is still missing is counted against the EVs read with this plan, as the team view counts them.
+        const current = evsForPlan(p, plan, natures);
+        const { spread, toTrain } = describePlan(plan, current, lang === 'es' ? 'nada' : 'nothing');
+        const gap = evGap(plan, current);
         const missing = (Object.keys(gap) as (keyof typeof gap)[]).filter((k) => gap[k] > 0);
         return {
           ...parts,
@@ -362,7 +388,8 @@ export async function auditBuild(
             '(3) Every amount is a whole number of EVs. ' +
             '(4) The spread is what it should HAVE when finished, per stat, not what to add. currentEvs is what it has now, currentEvsTotal their sum, and evsLeftToTrain is maxEvsTotal minus that sum. ' +
             'statsWithFullEvsInGame, when not null, lists the stats the game shows with the full 252; every other stat has fewer. ' +
-            `(5) The six numbers add up to at most ${MAX_EV_TOTAL}, and should add up to exactly ${MAX_EV_TOTAL}: spread the EVs in three stats (for example 252 / 252 / 6), because EVs left unspent are stat points thrown away. ` +
+            `(5) The six numbers add up to exactly ${MAX_EV_TOTAL}: 252 in each of the two stats its role needs most, and the last 6 in a third (for example 252 / 252 / 6), because EVs left unspent are stat points thrown away. ` +
+            'When it already has EVs that cannot be taken back, still aim for 252 in two stats; if the EVs it has elsewhere leave no room for that, give the first one 252 and the second as many as are left. ' +
             (hasTarget
               ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them, never start over, and the EVs you add in total must not go over evsLeftToTrain. ') +
