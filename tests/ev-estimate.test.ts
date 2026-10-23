@@ -231,3 +231,28 @@ describe('very low levels with an EV plan', () => {
     expect(estimate).toEqual({ hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 });
   });
 });
+
+describe('a plan of 252 does not make a stat read full', () => {
+  // Kingambit at level 75, Adamant, Attack 299 with a "Pretty good" IV: 244 EVs fit, and so do 252.
+  const KINGAMBIT = { hp: 100, attack: 135, defense: 120, specialAttack: 60, specialDefense: 85, speed: 50 };
+  const stats = { hp: 277, attack: 299, defense: 223, specialAttack: 111, specialDefense: 158, speed: 109 };
+  const args = {
+    stats,
+    level: 75,
+    baseStats: KINGAMBIT,
+    nature: ADAMANT,
+    ivsLow: 31,
+    ratings: { attack: 'MEDIUM' as const },
+  };
+  const none = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
+
+  it('reads the plan as one step short of full when fewer EVs fit as well', () => {
+    expect(estimateEvRange(args).estimate.attack).toBe(244);
+    expect(estimateEvRange({ ...args, plan: { ...none, attack: 252 } }).estimate.attack).toBe(248);
+  });
+
+  it('still reads 252 when the stat itself is full', () => {
+    const full = { ...stats, attack: statValue('attack', 135, 31, 252, 75, ADAMANT) };
+    expect(estimateEvRange({ ...args, stats: full, ratings: null, plan: { ...none, attack: 252 } }).estimate.attack).toBe(252);
+  });
+});

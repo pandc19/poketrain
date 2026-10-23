@@ -83,6 +83,7 @@ export function estimateEvs(args: {
 }
 
 export const MAX_EV_TOTAL = 510;
+const MAX_STAT_EV = 252;
 
 /**
  * The most EVs (in fours, up to 252) that still show the stat that is shown. Below level 100 several
@@ -133,7 +134,8 @@ export function estimateEvRange(args: {
   /**
    * The EV plan, if there is one. A stat only says a range of EVs (see `estimateMaxEvs`, and the IVs
    * the Judge left open), so where the plan's amount is inside that range it is taken as the amount:
-   * the stat cannot show the difference, and the plan is the best reading of it.
+   * the stat cannot show the difference, and the plan is the best reading of it (never as 252 unless the
+   * stat itself reads full).
    */
   plan?: Partial<EvSpread> | null;
 }): { estimate: EvSpread; high: EvSpread } {
@@ -154,7 +156,11 @@ export function estimateEvRange(args: {
       // A stat EVs cannot move at this level (level 1) says nothing, so the plan is not a reading of it.
       const moves = statValue(key, rest.baseStats[key], best[key] ?? 31, 0, rest.level, rest.nature) !==
         statValue(key, rest.baseStats[key], best[key] ?? 31, 252, rest.level, rest.nature);
-      if (moves && want != null && want > estimate[key] && want <= most[key]) estimate[key] = want;
+      if (!moves || want == null) continue;
+      // A plan of 252 only says "full" when the stat itself does: if fewer EVs fit as well, the game may well
+      // show the stat as not full, so the plan is read as one step short of it.
+      const reading = want >= MAX_STAT_EV && estimate[key] < MAX_STAT_EV ? MAX_STAT_EV - 4 : want;
+      if (reading > estimate[key] && reading <= most[key]) estimate[key] = reading;
     }
   }
   return {
