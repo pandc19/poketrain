@@ -4,7 +4,7 @@ import { auditAsk, gameHasMints, type AuditSubject } from '@/lib/audit-ask';
 const SV = { hasEvs: true, hasTera: true, hasMint: true };
 const named = (nameEn: string) => ({ nameEn });
 
-const open: AuditSubject = { auditLocks: null, evs: null, currentNature: named('Jolly'), targetNature: null, mintNature: null, mintStatus: 'PENDING' };
+const open: AuditSubject = { auditLocks: null, evs: null, currentNature: named('Jolly'), targetNature: null, mintNature: null };
 
 const allFixed: AuditSubject = {
   ...open,
@@ -50,10 +50,11 @@ describe('what an audit still has to work out', () => {
     expect(auditAsk(changed, SV).nothingToAsk).toBe(false);
   });
 
-  it('does not count a Mint that was only chosen, not given', () => {
-    const chosen: AuditSubject = { ...allFixed, currentNature: named('Brave'), mintNature: named('Jolly'), auditLocks: { mint: { nature: 'Jolly', reason: 'x' } } };
-    expect(auditAsk(chosen, SV).ask.mint).toBe(true);
-    expect(auditAsk({ ...chosen, mintStatus: 'DONE' }, SV).ask.mint).toBe(false);
+  it('keeps a fixed Mint change while no other Mint is chosen', () => {
+    const change = { ...allFixed, currentNature: named('Brave'), auditLocks: { mint: { nature: 'Jolly', reason: 'x', change: true } } };
+    expect(auditAsk(change, SV).ask.mint).toBe(false);
+    expect(auditAsk({ ...change, mintNature: named('Jolly') }, SV).ask.mint).toBe(false);
+    expect(auditAsk({ ...change, mintNature: named('Adamant') }, SV).ask.mint).toBe(true);
   });
 
   it('asks for a nature when none is on record, even with everything else fixed', () => {

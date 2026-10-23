@@ -454,6 +454,7 @@ export function RosterDetail({
     moves: p.moves.flatMap((m) => (m.move ? [m.move.nameEn] : [])),
     tera: p.teraType,
     mintGiven: mintInForce(p)?.nameEn ?? null,
+    mintChosen: p.mintNature?.nameEn ?? null,
     realNature: (p.currentNature ?? p.targetNature)?.nameEn ?? null,
     evs: p.evs ? formatEvs(p.evs) : null,
   });
@@ -506,7 +507,7 @@ export function RosterDetail({
             key: 'mint',
             label: t('Mint'),
             now: p.mintNature ? mintName(p.mintNature) : t('No mint'),
-            ai: sug.mint.keep && !p.mintNature ? t('No mint') : mintLabel(sug.mint.nature),
+            ai: sug.mint.target ? mintLabel(sug.mint.target) : t('No mint'),
             same: sug.mint.same,
           },
         ]
@@ -777,11 +778,12 @@ export function RosterDetail({
                     same={false}
                     title={sug.mint.reason}
                     onApply={() => {
-                      const n = natureOf(sug.mint!.nature);
-                      if (n) void save({ mintNatureId: n.id });
+                      const target = sug.mint!.target;
+                      const n = target ? natureOf(target) : null;
+                      if (!target || n) void save({ mintNatureId: n?.id ?? null });
                     }}
                   >
-                    {mintLabel(sug.mint.nature)}
+                    {sug.mint.target ? mintLabel(sug.mint.target) : t('No mint')}
                   </Suggestion>
                 ))}
             </Field>
@@ -1064,11 +1066,8 @@ export function RosterDetail({
           }
           currentTera={p.teraType}
           mintGiven={mintInForce(p)?.nameEn ?? null}
+          mintChosen={p.mintNature?.nameEn ?? null}
           realNature={(p.currentNature ?? p.targetNature)?.nameEn ?? null}
-          onMint={(nature, given) => {
-            const match = options.natures.find((n) => n.nameEn.toLowerCase() === nature.toLowerCase());
-            if (match) void save({ mintNatureId: given ? match.id : null });
-          }}
           lockedPlan={p.evs ? formatEvs(p.evs) : null}
           onLockPlan={(spread) => void save({ evs: spread })}
           onUnlockPlan={() => void save({ evs: null })}

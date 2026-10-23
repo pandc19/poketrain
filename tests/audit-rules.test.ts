@@ -274,3 +274,17 @@ describe('version', () => {
     expect(RULES_VERSION).toBeGreaterThan(0);
   });
 });
+
+describe('a Mint that is fixed or chosen', () => {
+  it('builds for the effect it will have, not the one it has now', () => {
+    const modest = NATURES.find((n) => n.nameEn === 'Modest')!;
+    const adamant = NATURES.find((n) => n.nameEn === 'Adamant')!;
+    // Attack and Sp. Atk too close to call: the nature decides, and an Adamant Mint on the way makes it physical.
+    const even = { ...garchomp.baseStats, attack: 100, specialAttack: 105, speed: 60 };
+    const now = ruleAudit({ ...garchomp, baseStats: even, effectNature: modest, freeEvs: true });
+    const planned = ruleAudit({ ...garchomp, baseStats: even, effectNature: modest, plannedNature: adamant, freeEvs: true });
+    expect(now.evPlan?.spread.specialAttack).toBe(252);
+    expect(planned.evPlan?.spread.attack).toBe(252);
+    expect(planned.evPlan?.spread.specialAttack).toBe(0);
+  });
+});
