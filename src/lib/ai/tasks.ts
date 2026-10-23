@@ -8,6 +8,7 @@ import { learnableMoves } from '../breeding/moves';
 import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
 import { auditAsk, gameHasMints } from '../audit-ask';
 import { withFixedMoves } from '../audit-locks';
+import { keepLegalMoves, resolveName } from '../audit-names';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, shapePlan, trainingItemsFor } from '../ev-plan';
 import { syncEvStatus } from '../ev-sync';
@@ -18,13 +19,13 @@ import { type AuditAsk, type BuildAuditRaw, BilingualLocationSchema, type Locati
 import { localizeNames } from './names';
 import { mintInForce, settleMint } from '../mint';
 import { AiError, type AiProvider, type ModelTier } from './types';
-import { RULES_VERSION, ruleAudit, type RuleMove, type RuleNature } from '../audit-rules';
+import { RULES_VERSION, ruleAudit, type RuleInput, type RuleMove, type RuleNature } from '../audit-rules';
 import { MAX_EV_TOTAL, estimateEvRange } from '../ev-estimate';
 import { ivAssumption, potentialLevel } from '../potential';
 import { loadChart } from '../battle/load';
 import type { LearnableMoves } from '../breeding/moves';
 
-const PROMPT_VERSION = 24;
+const PROMPT_VERSION = 25;
 
 const SPANISH_RULES =
   'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
@@ -270,7 +271,76 @@ type RulesContext = {
   freeEvs: boolean;
   /** The nature whose effect the build is for (see `plannedNature`). */
   planned: string | null;
+  natures: RuleNature[];
 };
+
+/**
+ * What the rules need to work out an audit of this Pokémon, from game data alone (the quick audit, and what
+ * fills the moves a model got wrong). Nothing when there is too little data on the Pokémon.
+ */
+async function ruleInputFor(
+  game: GameConfig,
+  lang: Lang,
+  p: RosterView,
+  ctx: Pick<RulesContext, 'pool' | 'ask' | 'fixedMoves' | 'freeEvs' | 'planned' | 'natures'>
+): Promise<RuleInput | null> {
+  const final = p.finalSpecies;
+  const baseStats = final?.baseStats ?? p.baseStats;
+  if (!baseStats) return null;
+  const [itemRows, chart] = await Promise.all([
+    game.features.heldItems ? prisma.item.findMany({ where: { slug: { in: RULE_ITEMS } }, select: { slug: true, nameEn: true } }) : [],
+    loadChart(),
+  ]);
+  const known = new Set(p.moves.map((m) => m.move?.nameEn));
+  const moves: RuleMove[] = [...ctx.pool.egg, ...ctx.pool.other].map((m) => ({
+    slug: m.slug,
+    nameEn: m.nameEn,
+    type: m.type,
+    damageClass: m.damageClass,
+    power: m.power,
+    accuracy: m.accuracy,
+    known: known.has(m.nameEn),
+  }));
+  const items = Object.fromEntries(itemRows.map((i) => [i.slug, i.nameEn]));
+  const effect = mintInForce(p) ?? p.currentNature ?? p.targetNature;
+  return {
+    lang,
+    types: final?.types ?? p.types,
+    baseStats,
+    moves,
+    natures: ctx.natures,
+    effectNature: ctx.natures.find((n) => n.nameEn === effect?.nameEn) ?? null,
+    plannedNature: ctx.natures.find((n) => n.nameEn === ctx.planned) ?? null,
+    fixedMoves: ctx.fixedMoves,
+    currentEvs: p.currentEvs,
+    freeEvs: ctx.freeEvs,
+    items,
+    chart,
+    ask: ctx.ask,
+    currentItemSlug: Object.entries(items).find(([, name]) => name === p.item?.nameEn)?.[0] ?? null,
+  };
+}
+
+/**
+ * The moves a model suggested, as the game's own. Each is matched to a move this Pokémon can learn here, in
+ * English or Spanish: the app finds a move by its name, and a model writes it as it likes. A move it cannot
+ * learn is dropped (the model was told to choose only from the pool), and the free slot is filled by the rules,
+ * so every provider gives the player a set they can apply.
+ */
+async function legalMoveSuggestions(
+  picks: { move: string; reason: string }[],
+  fixed: string[],
+  game: GameConfig,
+  lang: Lang,
+  p: RosterView,
+  ctx: Pick<RulesContext, 'pool' | 'freeEvs' | 'planned' | 'natures'>
+): Promise<{ move: string; reason: string }[]> {
+  const kept = keepLegalMoves(picks, fixed, [...ctx.pool.egg, ...ctx.pool.other]);
+  if (fixed.length + kept.length >= 4) return kept;
+  const none = { evPlan: false, heldItem: false, moves: true, tera: false, nature: false, mint: false };
+  const input = await ruleInputFor(game, lang, p, { ...ctx, ask: none, fixedMoves: [...fixed, ...kept.map((k) => k.move)] });
+  return [...kept, ...(input ? (ruleAudit(input).recommendedMoves ?? []) : [])];
+}
 
 export async function auditBuild(
   provider: AuditSource,
@@ -287,7 +357,9 @@ export async function auditBuild(
   // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
   const hasTarget = hasEvs && game.features.evTarget;
   // Every nature with what it raises and lowers, so the model reads effects from data rather than memory.
-  const natures: RuleNature[] = await prisma.nature.findMany({ select: { nameEn: true, increased: true, decreased: true } });
+  const natures: RuleNature[] = await prisma.nature.findMany({
+    select: { nameEn: true, nameEs: true, increased: true, decreased: true },
+  });
   const locks = p.auditLocks;
   const hasTera = game.features.teraType;
   const hasMint = gameHasMints(game);
@@ -335,13 +407,22 @@ export async function auditBuild(
         // so a fixed change stays a change until that Mint is given.
         const settledMint = (m: { nature: string; reason: string } | undefined) =>
           m ? settleMint(m, (mintInForce(p) ?? p.currentNature ?? p.targetNature)?.nameEn, natures) : undefined;
+        // The model writes names as it likes (Spanish, a near miss): the app needs the game's English ones.
+        const fixedMoves = locks?.moves?.map((m) => m.move) ?? [];
+        const suggestedMoves = ask.moves
+          ? await legalMoveSuggestions(raw.recommendedMoves ?? [], fixedMoves, game, lang, p, { pool, freeEvs: hasTarget, planned, natures })
+          : [];
+        const itemNamed = ask.heldItem && raw.heldItem
+          ? resolveName(raw.heldItem.item, await prisma.item.findMany({ select: { nameEn: true, nameEs: true } }))
+          : undefined;
+        const natureNamed = raw.nature ? resolveName(raw.nature.nature, natures) : undefined;
         // What the player fixed is kept as it is; the model only filled the rest.
         const parts = {
-          heldItem: locks?.heldItem ?? raw.heldItem,
-          recommendedMoves: withFixedMoves(locks?.moves, raw.recommendedMoves ?? []),
+          heldItem: locks?.heldItem ?? (raw.heldItem && itemNamed ? { ...raw.heldItem, item: itemNamed.nameEn } : raw.heldItem),
+          recommendedMoves: withFixedMoves(locks?.moves, suggestedMoves),
           ...(hasTera ? { teraType: locks?.teraType ?? raw.teraType } : {}),
           ...(hasMint ? { mint: settledMint(mintLock ?? raw.mint) } : {}),
-          ...(raw.nature ? { nature: raw.nature } : {}),
+          ...(raw.nature ? { nature: natureNamed ? { ...raw.nature, nature: natureNamed.nameEn } : raw.nature } : {}),
         };
         // In Spanish, game names the model left in English inside its sentences are put in the game's own Spanish.
         const say = (text: string) => localizeNames(text, lang);
@@ -381,7 +462,7 @@ export async function auditBuild(
       schemaName: 'build_audit',
       // Everything is fixed: nothing is left for the model to decide.
       local: rules
-        ? await rules({ pool, ask, fixedMoves: locks?.moves?.map((m) => m.move) ?? [], freeEvs: hasTarget, planned })
+        ? await rules({ pool, ask, fixedMoves: locks?.moves?.map((m) => m.move) ?? [], freeEvs: hasTarget, planned, natures })
         : nothingToAsk
           ? ({} as Partial<BuildAuditRaw>)
           : undefined,
@@ -559,45 +640,10 @@ const RULE_ITEMS = ['focus-sash', 'choice-band', 'choice-specs', 'life-orb', 'le
  * Always made again, since it is free and instant.
  */
 export async function quickAudit(game: GameConfig, lang: Lang, profileId: string, p: RosterView) {
-  const final = p.finalSpecies;
-  const baseStats = final?.baseStats ?? p.baseStats;
-  if (!baseStats) throw new AiError('There is not enough data on this Pokémon to suggest how to set it up.');
+  if (!(p.finalSpecies?.baseStats ?? p.baseStats)) throw new AiError('There is not enough data on this Pokémon to suggest how to set it up.');
 
-  return auditBuild(RULES_SOURCE, game, lang, profileId, p, true, false, async ({ pool, ask, fixedMoves, freeEvs, planned }) => {
-    const [natures, itemRows, chart] = await Promise.all([
-      prisma.nature.findMany({ select: { nameEn: true, increased: true, decreased: true } }),
-      game.features.heldItems ? prisma.item.findMany({ where: { slug: { in: RULE_ITEMS } }, select: { slug: true, nameEn: true } }) : [],
-      loadChart(),
-    ]);
-    const known = new Set(p.moves.map((m) => m.move?.nameEn));
-    const moves: RuleMove[] = [...pool.egg, ...pool.other].map((m) => ({
-      slug: m.slug,
-      nameEn: m.nameEn,
-      type: m.type,
-      damageClass: m.damageClass,
-      power: m.power,
-      accuracy: m.accuracy,
-      known: known.has(m.nameEn),
-    }));
-    const items = Object.fromEntries(itemRows.map((i) => [i.slug, i.nameEn]));
-    const effect = mintInForce(p) ?? p.currentNature ?? p.targetNature;
-    const effectNature: RuleNature | null = natures.find((n) => n.nameEn === effect?.nameEn) ?? null;
-    const raw = ruleAudit({
-      lang,
-      types: final?.types ?? p.types,
-      baseStats,
-      moves,
-      natures,
-      effectNature,
-      plannedNature: natures.find((n) => n.nameEn === planned) ?? null,
-      fixedMoves,
-      currentEvs: p.currentEvs,
-      freeEvs,
-      items,
-      chart,
-      ask,
-      currentItemSlug: Object.entries(items).find(([, name]) => name === p.item?.nameEn)?.[0] ?? null,
-    });
-    return raw as Partial<BuildAuditRaw>;
+  return auditBuild(RULES_SOURCE, game, lang, profileId, p, true, false, async (ctx) => {
+    const input = await ruleInputFor(game, lang, p, ctx);
+    return (input ? ruleAudit(input) : {}) as Partial<BuildAuditRaw>;
   });
 }
