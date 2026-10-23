@@ -75,6 +75,8 @@ const Body = z.object({
           speed: z.enum(IV_RATING_VALUES).nullable().optional(),
         })
         .nullable(),
+      /** The stats whose EVs the game shows sparkling (252). Null = not looked at. */
+      maxedEvs: z.array(z.enum(['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'])).max(6).nullable(),
       teraType: z.enum(TYPE_SLUGS as [string, ...string[]]).nullable(),
       potential: z.enum(['DECENT', 'ABOVE_AVERAGE', 'RELATIVELY_SUPERIOR', 'OUTSTANDING']).nullable(),
       notes: z.string().max(4000).nullable(),
@@ -171,7 +173,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
       if (set.evs && !evs) {
         return apiError('EV spread not recognised. Example: 252 Atk / 4 SpD / 252 Spe', 422);
       }
-      // A plan is saved the way the game counts: in fours, 252 at most in a stat and 508 in all.
+      // A plan is saved the way the game allows: 252 at most in a stat and 510 in all.
       if (evs) evs = legalPlan(evs, null, false);
     }
     // A Mint is chosen first and given later: choosing another one starts it again as not given.
@@ -242,6 +244,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
             : {}),
           ...(set.level !== undefined ? { level: set.level } : {}),
           ...(set.ivRatings !== undefined ? { ivRatings: set.ivRatings ?? Prisma.DbNull } : {}),
+          ...(set.maxedEvs !== undefined ? { maxedEvs: set.maxedEvs ? [...new Set(set.maxedEvs)] : Prisma.DbNull } : {}),
           ...(set.auditLocks !== undefined ? { auditLocks: set.auditLocks ?? Prisma.DbNull } : {}),
           ...(currentEvs !== undefined
             ? { currentEvs: currentEvs ?? Prisma.DbNull, currentEvsEstimated: currentEvs ? (set.currentEvsEstimated ?? false) : false }
@@ -288,7 +291,8 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
         set.mintStatus !== undefined ||
         set.statsRead !== undefined ||
         set.evs !== undefined ||
-        set.ivRatings !== undefined)
+        set.ivRatings !== undefined ||
+        set.maxedEvs !== undefined)
     ) {
       if (set.currentStats === null) {
         await prisma.rosterPokemon.update({

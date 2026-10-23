@@ -30,6 +30,7 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
       targetNatureId: true,
       potential: true,
       ivRatings: true,
+      maxedEvs: true,
       profile: { select: { gameId: true } },
     },
   });
@@ -48,7 +49,8 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     ? await db.nature.findUnique({ where: { id: natureId }, select: { increased: true, decreased: true } })
     : null;
 
-  // The fewest EVs that fit: judged stats are held to their IV band, the rest assume perfect IVs.
+  // The fewest EVs that fit: judged stats are held to their IV band, the rest assume perfect IVs. The sparkles
+  // the game shows settle which stats are full.
   const { estimate: evs } = estimateEvRange({
     stats: row.currentStats as unknown as EvSpread,
     level: row.level,
@@ -57,6 +59,7 @@ export async function recomputeEvsFromStats(db: Db, rosterId: string): Promise<v
     ivsLow: ivAssumption(row.potential).low,
     ratings: row.ivRatings as IvRatings | null,
     plan: row.evs as Partial<EvSpread> | null,
+    maxed: row.maxedEvs as (keyof EvSpread)[] | null,
   });
   // Where EVs are hard to take back, the plan can only add to what the Pokémon has: if the stats now read
   // higher than the plan in a stat (it evolved, or leveled up), the plan is raised to match, and what that

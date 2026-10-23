@@ -222,12 +222,15 @@ function StatsSection({
   info,
   onSave,
   onStatsRead,
+  onMaxed,
 }: {
   p: RosterView;
   info?: EvEstimateInfo;
   onSave: (stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   /** The numbers on record were read again under the nature effect in force now. */
   onStatsRead: () => void;
+  /** Saves which stats the game shows sparkling (252 EVs). */
+  onMaxed: (maxed: (keyof EvSpread)[]) => void;
 }) {
   const { t, lang } = useT();
   const pickName = (n: { nameEn: string; nameEs: string } | null) => (n ? (lang === 'en' ? n.nameEn : n.nameEs) : '');
@@ -239,6 +242,7 @@ function StatsSection({
   const [stats, setStats] = useState<EvSpread | null>(p.currentStats);
   const [level, setLevel] = useState(p.level);
   const [ratings, setRatings] = useState<IvRatings>(p.ivRatings ?? {});
+  const [maxed, setMaxed] = useState(p.maxedEvs);
   const commit = () => {
     const next = stats && evTotal(stats) > 0 ? stats : null;
     const changed =
@@ -281,6 +285,11 @@ function StatsSection({
       savedEvs={p.currentEvs}
       savedEstimated={p.currentEvsEstimated}
       plan={p.evs}
+      maxed={maxed}
+      onMaxedChange={(next) => {
+        setMaxed(next);
+        onMaxed(next);
+      }}
       hintKey={p.id}
     />
     </div>
@@ -444,7 +453,7 @@ export function RosterDetail({
     item: p.item?.nameEn ?? p.itemNote,
     moves: p.moves.flatMap((m) => (m.move ? [m.move.nameEn] : [])),
     tera: p.teraType,
-    mintGiven: p.mintNature?.nameEn ?? null,
+    mintGiven: mintInForce(p)?.nameEn ?? null,
     realNature: (p.currentNature ?? p.targetNature)?.nameEn ?? null,
     evs: p.evs ? formatEvs(p.evs) : null,
   });
@@ -982,6 +991,7 @@ export function RosterDetail({
                   info={estimate}
                   onSave={onSaveStats}
                   onStatsRead={() => void save({ statsRead: true })}
+                  onMaxed={(maxedEvs) => void save({ maxedEvs })}
                 />
               )}
               {judge && (
@@ -1053,7 +1063,7 @@ export function RosterDetail({
                   : mintLabel(english)
           }
           currentTera={p.teraType}
-          mintGiven={p.mintNature?.nameEn ?? null}
+          mintGiven={mintInForce(p)?.nameEn ?? null}
           realNature={(p.currentNature ?? p.targetNature)?.nameEn ?? null}
           onMint={(nature, given) => {
             const match = options.natures.find((n) => n.nameEn.toLowerCase() === nature.toLowerCase());

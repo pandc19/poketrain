@@ -1,6 +1,9 @@
 import type { EvSpread } from './import/evs';
 import { ivBoundsFor, type IvRatings } from './iv-ratings';
 
+export const MAX_EV_TOTAL = 510;
+const MAX_STAT_EV = 252;
+
 /** The stat a nature raises or lowers, as PokéAPI names it ("special-attack"). */
 export type NatureEffect = { increased: string | null; decreased: string | null } | null;
 
@@ -40,7 +43,7 @@ export function statValue(
  * assumed. A Pokémon with lower IVs has more EVs than this says; the result is
  * the smallest spread that produces the stat. Below level 100 several EVs can
  * give the same stat, and the smallest is returned, except a stat at its
- * maximum, which reads as 252. Values are multiples of 4
+ * maximum, which reads as 252 (unless it is in `notFull`). Values are multiples of 4
  * (only each 4 EVs add a point) and never above 252.
  */
 export function estimateEvs(args: {
@@ -50,13 +53,16 @@ export function estimateEvs(args: {
   nature: NatureEffect;
   /** One IV for every stat, or an IV per stat (31 for any left out). */
   ivs?: number | Partial<Record<keyof EvSpread, number>>;
+  /** Stats the game shows as not full (no sparkles): they hold 251 EVs at most, so never read as 252. */
+  notFull?: (keyof EvSpread)[];
 }): EvSpread {
-  const { stats, level, baseStats, nature, ivs = 31 } = args;
+  const { stats, level, baseStats, nature, ivs = 31, notFull = [] } = args;
   const out: EvSpread = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
   (Object.keys(out) as (keyof EvSpread)[]).forEach((key) => {
     const target = stats[key];
     if (!target) return;
     const iv = typeof ivs === 'number' ? ivs : (ivs[key] ?? 31);
+    const top = notFull.includes(key) ? MAX_STAT_EV - 4 : MAX_STAT_EV;
     // At a very low level the stat does not move with EVs at all (level 1 shows 6 whether the Pokémon
     // has none or 252), so it says nothing about them: read it as none, not as full.
     if (statValue(key, baseStats[key], iv, 0, level, nature) === statValue(key, baseStats[key], iv, 252, level, nature)) {
@@ -66,29 +72,26 @@ export function estimateEvs(args: {
     // A stat at its maximum for this level has 252 EVs: below level 100 a few
     // fewer give the same number, but the stat could not tell them apart and
     // the game shows it as full.
-    if (statValue(key, baseStats[key], iv, 252, level, nature) <= target) {
+    if (top === MAX_STAT_EV && statValue(key, baseStats[key], iv, 252, level, nature) <= target) {
       out[key] = 252;
       return;
     }
     // Smallest number of 4-EV steps that makes the shown stat.
-    for (let steps = 0; steps <= 63; steps++) {
+    for (let steps = 0; steps * 4 <= top; steps++) {
       if (statValue(key, baseStats[key], iv, steps * 4, level, nature) >= target) {
         out[key] = steps * 4;
         return;
       }
     }
-    out[key] = 252;
+    out[key] = top;
   });
   return out;
 }
 
-export const MAX_EV_TOTAL = 510;
-const MAX_STAT_EV = 252;
-
 /**
- * The most EVs (in fours, up to 252) that still show the stat that is shown. Below level 100 several
- * EV amounts give the same number (at level 75 a point takes about 5 steps of 4), so what the stat
- * says is a range: this is its top end, and `estimateEvs` its bottom.
+ * The most EVs (up to 252) that still show the stat that is shown. Only each 4 EVs add a point, so
+ * 248 to 251 show the same, and below level 100 several steps of 4 do too (at level 75 a point takes
+ * about 5): what the stat says is a range, this is its top end and `estimateEvs` its bottom.
  */
 export function estimateMaxEvs(args: {
   stats: EvSpread;
@@ -105,7 +108,7 @@ export function estimateMaxEvs(args: {
     const iv = typeof ivs === 'number' ? ivs : (ivs[key] ?? 31);
     for (let steps = 63; steps >= 0; steps--) {
       if (statValue(key, baseStats[key], iv, steps * 4, level, nature) <= target) {
-        out[key] = steps * 4;
+        out[key] = Math.min(MAX_STAT_EV, steps * 4 + 3);
         return;
       }
     }
@@ -122,6 +125,9 @@ export function estimateMaxEvs(args: {
  * be anywhere from `ivsLow` (what the overall potential allows, 31 when that
  * is unknown) to 31. The fewest EVs assume the highest IV each stat can have,
  * the most assume the lowest. The real EVs are somewhere between the two.
+ *
+ * The sparkles the game shows on a stat's EVs settle the top end: a stat marked `maxed` has 252, and once the
+ * player has looked (`maxed` is not null) every other stat has 251 at most.
  */
 export function estimateEvRange(args: {
   stats: EvSpread;
@@ -134,12 +140,13 @@ export function estimateEvRange(args: {
   /**
    * The EV plan, if there is one. A stat only says a range of EVs (see `estimateMaxEvs`, and the IVs
    * the Judge left open), so where the plan's amount is inside that range it is taken as the amount:
-   * the stat cannot show the difference, and the plan is the best reading of it (never as 252 unless the
-   * stat itself reads full).
+   * the stat cannot show the difference, and the plan is the best reading of it.
    */
   plan?: Partial<EvSpread> | null;
+  /** The stats the game shows sparkling (252 EVs). Null when the player has not looked. */
+  maxed?: (keyof EvSpread)[] | null;
 }): { estimate: EvSpread; high: EvSpread } {
-  const { ivsLow, ratings, plan, ...rest } = args;
+  const { ivsLow, ratings, plan, maxed, ...rest } = args;
   const keys = Object.keys(args.stats) as (keyof EvSpread)[];
   const best: Partial<Record<keyof EvSpread, number>> = {};
   const worst: Partial<Record<keyof EvSpread, number>> = {};
@@ -148,25 +155,26 @@ export function estimateEvRange(args: {
     best[key] = bounds.high;
     worst[key] = bounds.low;
   }
-  const estimate = estimateEvs({ ...rest, ivs: best });
+  const notFull = maxed ? keys.filter((key) => !maxed.includes(key)) : [];
+  const estimate = estimateEvs({ ...rest, ivs: best, notFull });
+  const high = estimateEvs({ ...rest, ivs: worst, notFull });
   if (plan) {
     const most = estimateMaxEvs({ ...rest, ivs: worst });
+    for (const key of notFull) most[key] = Math.min(most[key], MAX_STAT_EV - 1);
     for (const key of keys) {
       const want = plan[key];
       // A stat EVs cannot move at this level (level 1) says nothing, so the plan is not a reading of it.
       const moves = statValue(key, rest.baseStats[key], best[key] ?? 31, 0, rest.level, rest.nature) !==
         statValue(key, rest.baseStats[key], best[key] ?? 31, 252, rest.level, rest.nature);
       if (!moves || want == null) continue;
-      // A plan of 252 only says "full" when the stat itself does: if fewer EVs fit as well, the game may well
-      // show the stat as not full, so the plan does not move the reading (it reads the same with or without it).
-      if (want >= MAX_STAT_EV && estimate[key] < MAX_STAT_EV) continue;
       if (want > estimate[key] && want <= most[key]) estimate[key] = want;
     }
   }
-  return {
-    estimate,
-    high: estimateEvs({ ...rest, ivs: worst }),
-  };
+  // The game says it: a sparkling stat has the 252 the stats alone could not tell from a few fewer.
+  for (const key of maxed ?? []) {
+    if (key in estimate && rest.stats[key]) estimate[key] = high[key] = MAX_STAT_EV;
+  }
+  return { estimate, high };
 }
 
 /**
@@ -218,6 +226,12 @@ export function levelHints(args: {
     // A stat that EVs cannot move at this level is not "full".
     if (stats[key] === max && statValue(key, baseStats[key], best, 0, level, nature) !== max) atMax.push(key);
   }
-  // 508 is what can be spent in fours; a little over is just how the stats round.
   return { overTotal: total > MAX_EV_TOTAL ? total : null, atMax };
 }
+
+/**
+ * The most EVs the stats allow could already be the 510 a Pokémon can have. Readings go in steps of 4 per
+ * stat, so a total within one step of 510 may well be at it.
+ */
+export const mayBeFull = (high: EvSpread): boolean =>
+  (Object.values(high) as number[]).reduce((a, b) => a + b, 0) > MAX_EV_TOTAL - 4;

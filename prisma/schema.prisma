@@ -492,6 +492,9 @@ model RosterPokemon {
   level               Int        @default(100)
   /// What the Judge said about each stat's IV: { hp: "PERFECT", attack: "LOW", ... }. Missing = not judged.
   ivRatings           Json?      @map("iv_ratings")
+  /// The stats whose EVs the game shows sparkling (252): ["attack", "speed"]. Null = not looked at; once
+  /// recorded, a stat left out is one the game shows as not full.
+  maxedEvs            Json?      @map("maxed_evs")
   /// Parts of the AI audit the player has fixed: { heldItem?, moves? }. Re-running the audit keeps them.
   auditLocks          Json?      @map("audit_locks")
 

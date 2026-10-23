@@ -132,18 +132,19 @@ describe('a stat shows a range of EVs, and the plan can sit inside it', () => {
     const low = estimateEvs({ stats, level, baseStats: base, nature: null, ivs: 31 });
     const top = estimateMaxEvs({ stats, level, baseStats: base, nature: null, ivs: 31 });
     expect(top.attack).toBeGreaterThan(low.attack);
-    expect(top.attack % 4).toBe(0);
+    // 4 EVs make a point, so the top of a step is 3 past a multiple of 4 (248 to 251 show the same).
+    expect(top.attack % 4).toBe(3);
     // Every amount in between gives the same shown stat.
     for (let ev = low.attack; ev <= top.attack; ev += 4) {
       expect(statValue('attack', base.attack, 31, ev, level, null)).toBe(164);
     }
   });
 
-  it('is the same number at level 100, where each step shows', () => {
+  it('is one step of 4 at level 100, where each step shows', () => {
     const s100 = { ...none, attack: 200 };
     const low = estimateEvs({ stats: s100, level: 100, baseStats: base, nature: null, ivs: 31 });
     const top = estimateMaxEvs({ stats: s100, level: 100, baseStats: base, nature: null, ivs: 31 });
-    expect(top.attack).toBe(low.attack);
+    expect(top.attack).toBe(low.attack + 3);
   });
 
   it('takes the plan as the amount when it is inside the range', () => {
@@ -194,7 +195,7 @@ describe('hints that the level may be behind the game', () => {
     };
     const { estimate } = estimateEvRange({ stats, level: 74, baseStats: base, nature, ivsLow: 31 });
     const total = Object.values(estimate).reduce((a, b) => a + b, 0);
-    expect(total).toBeGreaterThan(508);
+    expect(total).toBeGreaterThan(510);
     expect(levelHints({ stats, level: 74, baseStats: base, nature, estimate }).overTotal).toBe(total);
   });
 
@@ -232,7 +233,7 @@ describe('very low levels with an EV plan', () => {
   });
 });
 
-describe('a plan of 252 does not make a stat read full', () => {
+describe('reading 252 when fewer EVs fit as well', () => {
   // Kingambit at level 75, Adamant, Attack 299 with a "Pretty good" IV: 244 EVs fit, and so do 252.
   const KINGAMBIT = { hp: 100, attack: 135, defense: 120, specialAttack: 60, specialDefense: 85, speed: 50 };
   const stats = { hp: 277, attack: 299, defense: 223, specialAttack: 111, specialDefense: 158, speed: 109 };
@@ -246,9 +247,40 @@ describe('a plan of 252 does not make a stat read full', () => {
   };
   const none = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
 
-  it('reads the same with a plan of 252 as without one when fewer EVs fit as well', () => {
+  it('takes a plan of 252 as the amount when 252 fits the stat', () => {
     expect(estimateEvRange(args).estimate.attack).toBe(244);
-    expect(estimateEvRange({ ...args, plan: { ...none, attack: 252 } }).estimate.attack).toBe(244);
+    expect(estimateEvRange({ ...args, plan: { ...none, attack: 252 } }).estimate.attack).toBe(252);
+  });
+
+  it('reads 252 when the game shows the stat sparkling, plan or not', () => {
+    expect(estimateEvRange({ ...args, maxed: ['attack'] }).estimate.attack).toBe(252);
+    expect(estimateEvRange({ ...args, maxed: ['attack'] }).high.attack).toBe(252);
+  });
+
+  it('never reads 252 in a stat the game shows as not full, even with a plan of 252', () => {
+    const marked = estimateEvRange({ ...args, maxed: [], plan: { ...none, attack: 252 } });
+    expect(marked.estimate.attack).toBe(244);
+    expect(marked.high.attack).toBeLessThan(252);
+  });
+
+  it('reads a stat at its maximum as not full when the game shows no sparkles', () => {
+    const full = { ...stats, attack: statValue('attack', 135, 31, 252, 75, ADAMANT) };
+    expect(estimateEvRange({ ...args, stats: full, ratings: null }).estimate.attack).toBe(252);
+    expect(estimateEvRange({ ...args, stats: full, ratings: null, maxed: [] }).estimate.attack).toBeLessThan(252);
+  });
+
+  it('reads the Kingambit the game shows sparkling in Attack as 252', () => {
+    // Level 76, Adamant, Attack 303, "Pretty good" IV (16-25): IV 25 with 248 EVs or IV 24 with 252 both give 303.
+    const real = {
+      stats: { hp: 280, attack: 303, defense: 210, specialAttack: 107, specialDefense: 157, speed: 104 },
+      level: 76,
+      baseStats: KINGAMBIT,
+      nature: ADAMANT,
+      ivsLow: 31,
+      ratings: { hp: 'PERFECT', attack: 'MEDIUM', defense: 'PERFECT', specialAttack: 'PERFECT', specialDefense: 'PERFECT', speed: 'PERFECT' } as const,
+    };
+    expect(estimateEvRange(real).estimate.attack).toBe(248);
+    expect(estimateEvRange({ ...real, maxed: ['attack'] }).estimate).toEqual({ ...none, hp: 100, attack: 252 });
   });
 
   it('still reads 252 when the stat itself is full', () => {

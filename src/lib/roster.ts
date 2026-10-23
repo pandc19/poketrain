@@ -84,6 +84,8 @@ export type RosterView = {
   level: number;
   /** The Judge's word for each stat's IV, for the stats that have been judged. */
   ivRatings: IvRatings | null;
+  /** The stats the game shows sparkling (252 EVs). Null = not looked at; once set, the rest are not full. */
+  maxedEvs: (keyof EvSpread)[] | null;
   /** AI audit sections the player has fixed. */
   auditLocks: AuditLocks | null;
   /** Base stats of its form, so a build can be judged against what it is. */
@@ -229,6 +231,7 @@ export async function loadRoster(
       currentStats: r.currentStats as EvSpread | null,
       level: r.level,
       ivRatings: r.ivRatings as IvRatings | null,
+      maxedEvs: r.maxedEvs as (keyof EvSpread)[] | null,
       auditLocks: r.auditLocks as AuditLocks | null,
       baseStats: (form?.baseStats ?? null) as EvSpread | null,
       evStatus: r.evStatus,

@@ -1,5 +1,7 @@
 import { multiplier, type TypeChart } from './battle/counters';
+import { MAX_EV_TOTAL } from './ev-estimate';
 import type { EvSpread } from './import/evs';
+import { sameEffect } from './mint';
 import type { Lang } from './i18n';
 import { TYPE_NAMES_ES } from './pokemon-types';
 
@@ -10,7 +12,7 @@ import { TYPE_NAMES_ES } from './pokemon-types';
  *
  * Bump this when a rule changes, so an audit made by older rules is told apart from a new one.
  */
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 
 type Stat = keyof EvSpread;
 type Say = { en: string; es: string };
@@ -153,7 +155,6 @@ export function idealNature(role: ReturnType<typeof roleOf>, natures: RuleNature
   return natures.find((n) => n.nameEn === name);
 }
 
-const sameEffect = (a: RuleNature, b: RuleNature) => a.increased === b.increased && a.decreased === b.decreased;
 
 function natureReason(n: RuleNature, lang: Lang, unused: Stat): string {
   const up = n.increased ? STAT_NAME[STAT_SLUG[n.increased]] : null;
@@ -276,20 +277,19 @@ function pickItem(input: RuleInput, role: ReturnType<typeof roleOf>, set: RuleMo
 function spreadFor(input: RuleInput, role: ReturnType<typeof roleOf>): EvSpread {
   const plan: EvSpread = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
   const order: [Stat, number][] = role.fast
-    ? [[role.offense, 252], ['speed', 252], ['hp', 4]]
-    : [[role.offense, 252], ['hp', 252], ['defense', 4]];
+    ? [[role.offense, 252], ['speed', 252], ['hp', 6]]
+    : [[role.offense, 252], ['hp', 252], ['defense', 6]];
   if (input.freeEvs || !input.currentEvs) {
     for (const [stat, amount] of order) plan[stat] = amount;
     return plan;
   }
   // EVs are hard to change here: keep what it has and put the ones still free where they matter most.
   Object.assign(plan, input.currentEvs);
-  let free = 508 - Object.values(plan).reduce((s, v) => s + v, 0);
+  let free = MAX_EV_TOTAL - Object.values(plan).reduce((s, v) => s + v, 0);
   for (const [stat, amount] of order) {
     const add = Math.min(Math.max(0, amount - plan[stat]), free);
-    const whole = add - (add % 4);
-    plan[stat] += whole;
-    free -= whole;
+    plan[stat] += add;
+    free -= add;
   }
   return plan;
 }
