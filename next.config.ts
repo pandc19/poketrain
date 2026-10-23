@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Lets another device on the home network (an iPad) load the dev server's scripts.
   allowedDevOrigins: ["192.168.*.*", "10.*.*.*"],
+  experimental: {
+    agentUpgrade: "security",
+  },
   turbopack: {
     rules: {
       "*.css": {
