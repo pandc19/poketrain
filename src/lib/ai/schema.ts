@@ -74,7 +74,9 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
           specialDefense: z.number().int(),
           speed: z.number().int(),
         })
-        .describe('EVs (not stats) it should have when finished: the EVs per stat, at most 252 each and 508 in total'),
+        .describe(
+          'EVs (not stats) it should have when finished: the EVs per stat, each a multiple of 4 and at most 252, adding up to 508 (never more)'
+        ),
     })
     .describe('How to finish its EV training'),
 });
