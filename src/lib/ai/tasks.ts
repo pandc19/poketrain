@@ -23,7 +23,7 @@ import { RULES_VERSION, ruleAudit, type RuleMove, type RuleNature } from '../aud
 import { loadChart } from '../battle/load';
 import type { LearnableMoves } from '../breeding/moves';
 
-const PROMPT_VERSION = 20;
+const PROMPT_VERSION = 21;
 
 const SPANISH_RULES =
   'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
@@ -165,6 +165,9 @@ function describeBuild(p: RosterView, hasEvs = true) {
       ? {
           // EVs per stat, all six listed. Not the same thing as the stats above.
           currentEvs: p.currentEvs ? statLine(p.currentEvs) : null,
+          maxEvsPerStat: 252,
+          maxEvsTotal: 508,
+          currentEvsTotal: p.currentEvs ? evTotal(p.currentEvs) : null,
           evsLeftToTrain: p.currentEvs ? Math.max(0, 508 - evTotal(p.currentEvs)) : null,
           // Worked out from the stats and IV ratings, so they may be a little low.
           currentEvsAreEstimated: p.currentEvs ? p.currentEvsEstimated : null,
@@ -311,14 +314,16 @@ export async function auditBuild(
         fixedNotes.length ? `The player has fixed these parts, so they are not asked again:\n${fixedNotes.join('\n')}` : '',
         ask.evPlan
           ? 'evPlan: currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never use them for the plan. ' +
-            'currentEvs are the EVs it has trained, per stat, and evsLeftToTrain is how many of the 508 are still free. ' +
-            'spread is the EVs it should finish with, as numbers per stat: multiples of 4 only (the game counts EVs in fours, so 6 is no better than 4), at most 252 each and 508 in total. ' +
+            'EV rules, which the spread must follow exactly: ' +
+            '(1) a stat holds at most 252 EVs (maxEvsPerStat). ' +
+            '(2) A Pokémon holds at most 510 EVs in all, but EVs count in fours, so 508 is the most that does anything (maxEvsTotal): 252 + 252 + 4. ' +
+            '(3) Every amount is a multiple of 4 (6 is no better than 4). ' +
+            '(4) The spread is what it should HAVE when finished, per stat, not what to add. currentEvs is what it has now, currentEvsTotal their sum, and evsLeftToTrain is maxEvsTotal minus that sum. ' +
+            '(5) The six numbers add up to at most 508, and should add up to exactly 508: spread the EVs in three stats (for example 252 / 252 / 4), because EVs left unspent are stat points thrown away. ' +
             (hasTarget
               ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
-              : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them with the evsLeftToTrain still free, and never start over. ') +
-            'The EVs you add in total must not go over evsLeftToTrain. ' +
-            'Spend all of them: the two stats its role needs most get 252 each, and the last 4 go to HP (or the bulk stat it benefits from). ' +
-            'put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed). ' +
+              : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them, never start over, and the EVs you add in total must not go over evsLeftToTrain. ') +
+            'Put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed); the last 4 go to HP or the bulk stat it benefits from. ' +
             'Do not say which Pokémon to battle, or give vitamin counts or EV arithmetic: the app works those out.' +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
           : '',
