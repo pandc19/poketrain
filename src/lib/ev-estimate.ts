@@ -158,9 +158,9 @@ export function estimateEvRange(args: {
         statValue(key, rest.baseStats[key], best[key] ?? 31, 252, rest.level, rest.nature);
       if (!moves || want == null) continue;
       // A plan of 252 only says "full" when the stat itself does: if fewer EVs fit as well, the game may well
-      // show the stat as not full, so the plan is read as one step short of it.
-      const reading = want >= MAX_STAT_EV && estimate[key] < MAX_STAT_EV ? MAX_STAT_EV - 4 : want;
-      if (reading > estimate[key] && reading <= most[key]) estimate[key] = reading;
+      // show the stat as not full, so the plan does not move the reading (it reads the same with or without it).
+      if (want >= MAX_STAT_EV && estimate[key] < MAX_STAT_EV) continue;
+      if (want > estimate[key] && want <= most[key]) estimate[key] = want;
     }
   }
   return {

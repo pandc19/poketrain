@@ -246,9 +246,9 @@ describe('a plan of 252 does not make a stat read full', () => {
   };
   const none = { hp: 0, attack: 0, defense: 0, specialAttack: 0, specialDefense: 0, speed: 0 };
 
-  it('reads the plan as one step short of full when fewer EVs fit as well', () => {
+  it('reads the same with a plan of 252 as without one when fewer EVs fit as well', () => {
     expect(estimateEvRange(args).estimate.attack).toBe(244);
-    expect(estimateEvRange({ ...args, plan: { ...none, attack: 252 } }).estimate.attack).toBe(248);
+    expect(estimateEvRange({ ...args, plan: { ...none, attack: 252 } }).estimate.attack).toBe(244);
   });
 
   it('still reads 252 when the stat itself is full', () => {
