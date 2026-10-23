@@ -29,7 +29,7 @@ export type RuleMove = {
 };
 
 /** A nature's effect, as stored: the stats' PokéAPI slugs ('attack', 'special-attack'...), or null when neutral. */
-export type RuleNature = { nameEn: string; increased: string | null; decreased: string | null };
+export type RuleNature = { nameEn: string; nameEs?: string; increased: string | null; decreased: string | null };
 
 export type RuleInput = {
   lang: Lang;

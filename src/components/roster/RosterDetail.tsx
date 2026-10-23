@@ -15,6 +15,7 @@ import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, 
 import { mintInForce } from '@/lib/mint';
 import { auditAsk } from '@/lib/audit-ask';
 import { auditSuggestions } from '@/lib/audit-compare';
+import { resolveName } from '@/lib/audit-names';
 import { evTotal, formatEvs, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import type { IvRatings } from '@/lib/iv-ratings';
@@ -380,6 +381,8 @@ export function RosterDetail({
     const q = text.trim().toLowerCase();
     return list.find((x) => x.nameEn.toLowerCase() === q || x.nameEs.toLowerCase() === q);
   };
+  // The audit's names, matched loosely: one saved before names were matched may hold "Pantalla Luz".
+  const findSuggested = (list: Named[], text: string) => resolveName(text, list);
 
   const [error, setError] = useState<string | null>(null);
   // A new audit replaces the one the card shows, so it is confirmed when there is one.
@@ -458,8 +461,8 @@ export function RosterDetail({
     realNature: (p.currentNature ?? p.targetNature)?.nameEn ?? null,
     evs: p.evs ? formatEvs(p.evs) : null,
   });
-  const itemOf = (name: string) => find(options.items, name);
-  const moveOf = (name: string) => find(options.moves, name);
+  const itemOf = (name: string) => findSuggested(options.items, name);
+  const moveOf = (name: string) => findSuggested(options.moves, name);
   const natureOf = (name: string) => options.natures.find((n) => n.nameEn.toLowerCase() === name.toLowerCase());
   // The nature a breeding plan would aim for: the one planned, else the one the audit suggests.
   const breedNature = p.targetNature ?? (sug.nature ? natureOf(sug.nature.nature) : undefined);
