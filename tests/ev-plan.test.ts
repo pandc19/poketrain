@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describePlan, legalPlan } from '@/lib/ev-plan';
+import { describePlan, fillPlan, legalPlan } from '@/lib/ev-plan';
 
 const evs = (hp = 0, attack = 0, defense = 0, specialAttack = 0, specialDefense = 0, speed = 0) => ({
   hp,
@@ -109,5 +109,19 @@ describe('withFixedMoves', () => {
     const m = (move: string) => ({ move, reason: '' });
     const out = withFixedMoves([m('Stone Edge')], [m('Earthquake'), m('stone edge'), m('Stealth Rock'), m('Explosion'), m('Rock Slide')]);
     expect(out.map((x) => x.move)).toEqual(['Stone Edge', 'Earthquake', 'Stealth Rock', 'Explosion']);
+  });
+});
+
+describe('fillPlan', () => {
+  it('spends the last 4 of a 252 / 252 spread on HP', () => {
+    expect(fillPlan(evs(0, 252, 0, 0, 0, 252))).toEqual(evs(4, 252, 0, 0, 0, 252));
+  });
+
+  it('leaves a full spread alone', () => {
+    expect(fillPlan(evs(4, 252, 0, 0, 0, 252))).toEqual(evs(4, 252, 0, 0, 0, 252));
+  });
+
+  it('never goes over 252 in a stat', () => {
+    expect(fillPlan(evs(252, 252, 0, 0, 0, 0))).toEqual(evs(252, 252, 4, 0, 0, 0));
   });
 });
