@@ -100,7 +100,7 @@ describe('rule-based audit of a fast physical attacker', () => {
   });
 
   it('puts the EVs in Attack, Speed and a little HP', () => {
-    expect(audit.evPlan?.spread).toEqual({ hp: 4, attack: 252, defense: 0, specialAttack: 0, specialDefense: 0, speed: 252 });
+    expect(audit.evPlan?.spread).toEqual({ hp: 6, attack: 252, defense: 0, specialAttack: 0, specialDefense: 0, speed: 252 });
   });
 
   it('picks the best attack of each of its types first, and a setup move', () => {
@@ -196,11 +196,11 @@ describe('fixed parts and limits', () => {
     const current = { hp: 0, attack: 100, defense: 252, specialAttack: 0, specialDefense: 0, speed: 0 };
     const spread = ruleAudit({ ...garchomp, freeEvs: false, currentEvs: current }).evPlan!.spread;
     for (const key of Object.keys(current) as (keyof typeof current)[]) expect(spread[key]).toBeGreaterThanOrEqual(current[key]);
-    expect(evTotal(spread)).toBeLessThanOrEqual(508);
-    // 352 are spent, so 156 are free: 152 finish Attack, the last 4 go to Speed.
+    expect(evTotal(spread)).toBeLessThanOrEqual(510);
+    // 352 are spent, so 158 are free: 152 finish Attack, the last 6 go to Speed.
     expect(spread.attack).toBe(252);
-    expect(spread.speed).toBe(4);
-    expect(evTotal(spread)).toBe(508);
+    expect(spread.speed).toBe(6);
+    expect(evTotal(spread)).toBe(510);
   });
 });
 

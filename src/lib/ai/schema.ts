@@ -10,7 +10,7 @@ import { TYPE_SLUGS } from '../pokemon-types';
 export const BuildAuditSchema = z.object({
   evPlan: z
     .object({
-      spread: z.string().describe('The EV spread to finish with, e.g. "252 Atk / 252 Spe / 4 HP"'),
+      spread: z.string().describe('The EV spread to finish with, e.g. "252 Atk / 252 Spe / 6 HP"'),
       toTrain: z.string().describe('Exactly what is still missing from its current EVs'),
       /** Written by earlier versions; the Pokémon to battle now come from game data (`sources`). */
       steps: z.array(z.string()).optional(),
@@ -54,15 +54,20 @@ export const BuildAuditSchema = z.object({
 });
 export type BuildAudit = z.infer<typeof BuildAuditSchema>;
 
-/** The same answer for a game without EV training: there is no EV plan to give. */
-export const BuildAuditNoEvSchema = BuildAuditSchema.omit({ evPlan: true });
-
 /**
- * What the model returns for the EV plan: the spread as numbers per stat, so
- * nothing can be mistaken for a stat value. The text shown, the vitamin counts
- * and the Pokémon to battle are all built from it in code.
+ * What the model returns. The EV plan is the spread as numbers per stat, so
+ * nothing can be mistaken for a stat value; the text shown, the vitamin counts
+ * and the Pokémon to battle are all built from it in code. The Mint is only the
+ * nature whose effect is best: whether that means keeping what it has, needing no
+ * Mint or using one is worked out in code from what the Pokémon has.
  */
 export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).extend({
+  mint: z
+    .object({
+      nature: z.string().describe('The nature whose stat effect is best for it, in English (one of the 25 natures)'),
+      reason: z.string().describe('One sentence: what that effect raises and lowers, and why that suits it'),
+    })
+    .describe('The nature effect it should have'),
   evPlan: z
     .object({
       spread: z
@@ -75,7 +80,7 @@ export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).exten
           speed: z.number().int(),
         })
         .describe(
-          'EVs (not stats) it should have when finished: the EVs per stat, each a multiple of 4 and at most 252, adding up to 508 (never more)'
+          'EVs (not stats) it should have when finished: whole EVs per stat, at most 252 each, adding up to 510 (never more)'
         ),
     })
     .describe('How to finish its EV training'),
@@ -90,9 +95,10 @@ export type AuditAsk = { evPlan: boolean; heldItem: boolean; moves: boolean; ter
  * decided (or paid for) again; the rest of the audit is put together in code.
  */
 export function buildAuditSchema(ask: AuditAsk, hasEvs: boolean) {
-  const base = hasEvs ? BuildAuditRawSchema : BuildAuditNoEvSchema;
+  const base = BuildAuditRawSchema;
   const omit: Record<string, true> = {};
-  if (!ask.evPlan) omit.evPlan = true;
+  // A game without EV training has no EV plan to give.
+  if (!ask.evPlan || !hasEvs) omit.evPlan = true;
   if (!ask.heldItem) omit.heldItem = true;
   if (!ask.moves) omit.recommendedMoves = true;
   if (!ask.tera) omit.teraType = true;

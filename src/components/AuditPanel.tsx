@@ -166,7 +166,7 @@ export function AuditPanel({
   compare?: { key: string; label: string; now: string; ai: string; same: boolean }[];
   /** The Tera type it has now, to show beside the suggestion. */
   currentTera?: string | null;
-  /** The nature (English name) of the Mint it was given, if any: "keep" is not said of a Mint it does not have. */
+  /** The nature (English name) of the Mint it was given, if any (one only chosen does not count): "keep" is not said of a Mint it does not have. */
   mintGiven?: string | null;
   /** Its own nature (English name), what counts when it has no Mint. */
   realNature?: string | null;
@@ -401,7 +401,9 @@ export function AuditPanel({
               {mintShown.keep
                 ? hasMint
                   ? t('Keep it: {nature}', { nature: mintName(mintShown.nature) })
-                  : t('No Mint needed: {nature} is already the best', { nature: mintName(mintShown.nature) })
+                  : t('No Mint needed: {nature} is already the best', {
+                      nature: localize ? localize('nature', mintShown.nature) : mintShown.nature,
+                    })
                 : hasMint
                   ? t('Change to {nature}', { nature: mintName(mintShown.nature) })
                   : t('Use a {nature} Mint', { nature: localize ? localize('nature', mintShown.nature) : mintShown.nature })}

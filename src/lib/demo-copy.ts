@@ -111,6 +111,7 @@ export async function copyUserData(fromUserId: string, toUserId: string): Promis
           currentEvs: json(r.currentEvs),
           currentStats: json(r.currentStats),
           ivRatings: json(r.ivRatings),
+          maxedEvs: json(r.maxedEvs),
           auditLocks: json(r.auditLocks),
         })),
       });

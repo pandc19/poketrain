@@ -4,7 +4,7 @@ import { auditAsk, gameHasMints, type AuditSubject } from '@/lib/audit-ask';
 const SV = { hasEvs: true, hasTera: true, hasMint: true };
 const named = (nameEn: string) => ({ nameEn });
 
-const open: AuditSubject = { auditLocks: null, evs: null, currentNature: named('Jolly'), targetNature: null, mintNature: null };
+const open: AuditSubject = { auditLocks: null, evs: null, currentNature: named('Jolly'), targetNature: null, mintNature: null, mintStatus: 'PENDING' };
 
 const allFixed: AuditSubject = {
   ...open,
@@ -48,6 +48,12 @@ describe('what an audit still has to work out', () => {
     const changed = { ...allFixed, currentNature: named('Adamant') };
     expect(auditAsk(changed, SV).ask.mint).toBe(true);
     expect(auditAsk(changed, SV).nothingToAsk).toBe(false);
+  });
+
+  it('does not count a Mint that was only chosen, not given', () => {
+    const chosen: AuditSubject = { ...allFixed, currentNature: named('Brave'), mintNature: named('Jolly'), auditLocks: { mint: { nature: 'Jolly', reason: 'x' } } };
+    expect(auditAsk(chosen, SV).ask.mint).toBe(true);
+    expect(auditAsk({ ...chosen, mintStatus: 'DONE' }, SV).ask.mint).toBe(false);
   });
 
   it('asks for a nature when none is on record, even with everything else fixed', () => {

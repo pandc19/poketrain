@@ -9,11 +9,11 @@ import { ExpandIcon, MinusCircleIcon } from '../ActionIcons';
 import { PokedexButton } from '../PokemonInfoDialog';
 import { TeraBadge, TypeBadge } from '../TypeBadge';
 import { STAT_LABELS } from '../EvInputs';
-import type { EvEstimateInfo } from '../StatsEvs';
+import { SparkleToggle, toggleMaxed, type EvEstimateInfo } from '../StatsEvs';
 import { EvSourcesDialog } from '../EvSources';
 import { HEX_ORDER, HexChart } from './HexChart';
 import { PokemonSprite, genderMark, progressOf } from './parts';
-import { estimateEvRange, levelHints, statValue } from '@/lib/ev-estimate';
+import { MAX_EV_TOTAL, estimateEvRange, mayBeFull, levelHints, statValue } from '@/lib/ev-estimate';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import type { Lang } from '@/lib/i18n';
 import type { IvRatings } from '@/lib/iv-ratings';
@@ -43,6 +43,7 @@ export function TeamView({
   onSetSlot,
   onSaveStats,
   onStatsRead,
+  onMaxed,
   onOpenDetails,
 }: {
   roster: RosterView[];
@@ -65,6 +66,8 @@ export function TeamView({
   onSaveStats: (p: RosterView, stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   /** The stats on record are up to date under the nature effect in force now. */
   onStatsRead: (p: RosterView) => void;
+  /** Saves which stats the game shows sparkling (252 EVs). */
+  onMaxed: (p: RosterView, maxed: (keyof EvSpread)[]) => void;
   /** Opens the full details of a Pokémon in the list view. */
   onOpenDetails: (id: string) => void;
 }) {
@@ -340,6 +343,7 @@ export function TeamView({
             speciesName={speciesName(shown)}
             onSaveStats={onSaveStats}
             onStatsRead={() => onStatsRead(shown)}
+            onMaxed={(maxed) => onMaxed(shown, maxed)}
             onOpenDetails={() => onOpenDetails(shown.id)}
             slot={shownSlot + 1}
             training={training}
@@ -501,6 +505,7 @@ function TeamDetail({
   training,
   onSaveStats,
   onStatsRead,
+  onMaxed,
   onOpenDetails,
   onRemove,
 }: {
@@ -514,6 +519,7 @@ function TeamDetail({
   training: keyof EvSpread | null;
   onSaveStats: (p: RosterView, stats: EvSpread | null, level: number, ratings: IvRatings) => void;
   onStatsRead: () => void;
+  onMaxed: (maxed: (keyof EvSpread)[]) => void;
   onOpenDetails: () => void;
   onRemove: () => void;
 }) {
@@ -582,10 +588,11 @@ function TeamDetail({
             ivsLow: iv.low,
             ratings,
             plan: p.evs,
+            maxed: p.maxedEvs,
           })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stats, level, info, iv.low, p.ivRatings, p.evs]
+    [stats, level, info, iv.low, p.ivRatings, p.evs, p.maxedEvs]
   );
   const evs = range?.estimate ?? p.currentEvs;
   const hints =
@@ -594,8 +601,6 @@ function TeamDetail({
       : null;
   // Waving the level hint away holds for this Pokémon, level and set of stats at their maximum.
   const [levelHintGone, goneLevelHint] = useDismissed(`level:${p.id}:${level}:${(hints?.atMax ?? []).join(',')}`);
-  // The stats alone could allow more than a Pokémon can hold; what it can have is 510 at most.
-  const highRaw = range ? evTotal(range.high) : 0;
   const total = evs ? evTotal(evs) : 0;
   const natureShown = mintInForce(p) ?? p.currentNature ?? p.targetNature;
   const nowNature = natureShown;
@@ -737,8 +742,9 @@ function TeamDetail({
             </div>
             {hints?.overTotal != null && (
               <p role="alert" className="mb-1 text-xs text-pending">
-                {t('These stats ask for {total} EVs, more than the 508 a Pokémon can use. If it has leveled up, change the level.', {
+                {t('These stats ask for {total} EVs, more than the {max} a Pokémon can have. If it has leveled up, change the level.', {
                   total: hints.overTotal,
+                  max: MAX_EV_TOTAL,
                 })}
               </p>
             )}
@@ -781,7 +787,8 @@ function TeamDetail({
             <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
               <h3 className="text-sm font-semibold">{t('EVs')}</h3>
               <p className="text-xs text-muted">
-                {t('Total {total} / 508', { total })} · {t('{n} EVs still to spend', { n: Math.max(0, 508 - total) })}
+                {t('Total {total} / {max}', { total, max: MAX_EV_TOTAL })} ·{' '}
+                {t('{n} EVs still to spend', { n: Math.max(0, MAX_EV_TOTAL - total) })}
               </p>
             </div>
             <HexChart
@@ -803,13 +810,14 @@ function TeamDetail({
                       {have}
                     </span>
                     {plan != null && <span className="block text-[10px] text-muted">/ {plan}</span>}
+                    <SparkleToggle stat={key} on={p.maxedEvs?.includes(key) ?? false} onToggle={() => onMaxed(toggleMaxed(p.maxedEvs, key))} />
                   </div>
                 );
               }}
             />
-            {highRaw >= 508 && (
+            {range && total < MAX_EV_TOTAL && mayBeFull(range.high) && (
               <p role="note" className="mt-2 text-xs text-star">
-                {t('Not every IV is known, so it may already have the most EVs it can use (508). If so, the EVs it gains in battle are lost: lower a stat it does not need (with a berry) first.')}
+                {t('Not every IV is known, so it may already have the most EVs it can have ({max}). If so, the EVs it gains in battle are lost: lower a stat it does not need (with a berry) first.', { max: MAX_EV_TOTAL })}
               </p>
             )}
             {/* The plan in numbers: what is still to train in each stat, and which ones to stop at. */}
@@ -860,7 +868,10 @@ function TeamDetail({
               </p>
             )}
             <p className="mt-1 text-center text-[11px] text-muted">
-              {range ? t('Worked out from the stats.') : t('The EVs on record.')}
+              {range ? t('Worked out from the stats.') : t('The EVs on record.')}{' '}
+              {p.maxedEvs
+                ? t('✦ marks the stats whose EVs sparkle in the game (252). The others are read as not full.')
+                : t('Tap ✦ on each stat whose EVs sparkle in the game (252): the stats alone cannot always tell 252 from a few fewer.')}
               {p.evs ? ` ${t('The dashed line is your plan.')}` : ''}
               {natureShown ? '' : ` ${t('Its nature is not set, so none is applied.')}`}
             </p>

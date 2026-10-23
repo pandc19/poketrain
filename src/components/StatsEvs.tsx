@@ -4,7 +4,7 @@ import { Sparkles } from '@/lib/sparkle';
 import { useState } from 'react';
 import { NO_EVS, STAT_LABELS, STAT_ORDER, cleanNumber } from './EvInputs';
 import { IV_RATINGS, ivRating, type IvRatingValue, type IvRatings } from '@/lib/iv-ratings';
-import { estimateEvRange, levelHints, statsAboveMax, type NatureEffect } from '@/lib/ev-estimate';
+import { MAX_EV_TOTAL, estimateEvRange, mayBeFull, levelHints, statsAboveMax, type NatureEffect } from '@/lib/ev-estimate';
 import { ivAssumption } from '@/lib/potential';
 import { evTotal, type EvSpread } from '@/lib/import/evs';
 import { useDismissed } from './useDismissed';
@@ -40,6 +40,39 @@ function natureText(info: EvEstimateInfo, lang: 'es' | 'en'): string {
   return increased && decreased
     ? `${info.natureName} (+${label(increased)}, −${label(decreased)})`
     : `${info.natureName}`;
+}
+
+/** The marks with one stat switched: the first mark also says the others do not sparkle. */
+export const toggleMaxed = (maxed: (keyof EvSpread)[] | null, key: keyof EvSpread): (keyof EvSpread)[] =>
+  maxed?.includes(key) ? maxed.filter((k) => k !== key) : [...(maxed ?? []), key];
+
+/**
+ * Says whether the game shows this stat's EVs sparkling, which only 252 does. The stats alone often cannot
+ * tell 252 from a few fewer, so this is what settles it.
+ */
+export function SparkleToggle({
+  stat,
+  on,
+  onToggle,
+}: {
+  stat: keyof EvSpread;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  const { t, lang } = useT();
+  const label = t('{stat}: its EVs sparkle in the game (252)', { stat: STAT_LABELS[stat][lang] });
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      className={`rounded px-1 text-[11px] leading-none ${on ? 'font-bold text-star' : 'text-muted/50 hover:text-muted'}`}
+    >
+      ✦
+    </button>
+  );
 }
 
 // Corners of the hexagon, from the top and clockwise, as the game draws it.
@@ -149,6 +182,8 @@ export function StatsEvsEditor({
   savedEvs,
   savedEstimated,
   plan,
+  maxed,
+  onMaxedChange,
   hintKey,
 }: {
   stats: EvSpread | null;
@@ -166,6 +201,10 @@ export function StatsEvsEditor({
   savedEstimated: boolean;
   /** The EV plan, if any: where it fits what the stats can show, it is taken as the amount. */
   plan?: EvSpread | null;
+  /** The stats the game shows sparkling (252 EVs); null when the player has not looked. */
+  maxed?: (keyof EvSpread)[] | null;
+  /** The sparkle marks changed; without it they are not offered. */
+  onMaxedChange?: (maxed: (keyof EvSpread)[]) => void;
   /** Identifies this Pokémon, so a hint it has waved away stays away. */
   hintKey?: string;
 }) {
@@ -174,7 +213,7 @@ export function StatsEvsEditor({
   const iv = ivAssumption(potential);
   const range =
     hasStats && info
-      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings, plan })
+      ? estimateEvRange({ stats, level, baseStats: info.baseStats, nature: info.nature, ivsLow: iv.low, ratings, plan, maxed })
       : null;
   const above =
     hasStats && info ? statsAboveMax({ stats, level, baseStats: info.baseStats, nature: info.nature, ratings }) : {};
@@ -198,7 +237,7 @@ export function StatsEvsEditor({
       return r != null && r.low === r.high;
     });
   const total = evs ? evTotal(evs) : 0;
-  const highTotalShown = range ? Math.min(510, evTotal(range.high)) : total;
+  const highTotalShown = range ? Math.min(MAX_EV_TOTAL, evTotal(range.high)) : total;
   const realRange =
     highTotalShown > total
       ? t('Real total: between {low} and {high}.', { low: total, high: highTotalShown })
@@ -212,7 +251,7 @@ export function StatsEvsEditor({
       `${t('Level')}: ${level}`,
       hasStats ? `${t('Stats')}: ${line(stats!)}` : null,
       evs
-        ? `EVs${estimated ? ` (${t('estimated')})` : ''}: ${line(evs)} · ${t('Total {total} / 508', { total })}`
+        ? `EVs${estimated ? ` (${t('estimated')})` : ''}: ${line(evs)} · ${t('Total {total} / {max}', { total, max: MAX_EV_TOTAL })}`
         : null,
     ]
       .filter(Boolean)
@@ -243,9 +282,19 @@ export function StatsEvsEditor({
       >
         <div className="grid grid-cols-3 gap-x-1.5 gap-y-2">
           {STAT_ORDER.map((key) => (
-            <div key={key} className="min-w-0">
+            <div key={key} className="relative min-w-0">
+              {/* Outside the label, so a tap on the stat's name still goes to its box. */}
+              {onMaxedChange && (
+                <span className="absolute right-0 top-0">
+                  <SparkleToggle
+                    stat={key}
+                    on={maxed?.includes(key) ?? false}
+                    onToggle={() => onMaxedChange(toggleMaxed(maxed ?? null, key))}
+                  />
+                </span>
+              )}
               <label className="block">
-                <span className="block truncate text-[10px] text-muted">{STAT_LABELS[key][lang]}</span>
+                <span className="block truncate pr-4 text-[10px] text-muted">{STAT_LABELS[key][lang]}</span>
                 <input
                   type="number"
                   inputMode="numeric"
@@ -281,6 +330,13 @@ export function StatsEvsEditor({
             </div>
           ))}
         </div>
+        {onMaxedChange && (
+          <p className="mt-1.5 text-[10px] text-muted">
+            {maxed
+              ? t('✦ marks the stats whose EVs sparkle in the game (252). The others are read as not full.')
+              : t('Tap ✦ on each stat whose EVs sparkle in the game (252): the stats alone cannot always tell 252 from a few fewer.')}
+          </p>
+        )}
         <div className="mt-2 flex items-center gap-2">
           <label className="flex w-24 items-center gap-1.5 text-[11px] text-muted">
             {t('Level')}
@@ -319,7 +375,8 @@ export function StatsEvsEditor({
           <p className="text-center text-xs font-semibold">{t('Current EVs')}</p>
           <EvGraph evs={evs} nature={info?.nature} over={aboveKeys} />
           <p className="text-center text-[11px] text-muted">
-            {t('Total {total} / 508', { total })} · {t('{n} EVs still to spend', { n: Math.max(0, 508 - total) })}
+            {t('Total {total} / {max}', { total, max: MAX_EV_TOTAL })} ·{' '}
+            {t('{n} EVs still to spend', { n: Math.max(0, MAX_EV_TOTAL - total) })}
           </p>
           {aboveKeys.map((key) => (
             <p key={key} role="alert" className="mt-1 text-center text-[11px] text-pending">
@@ -333,8 +390,9 @@ export function StatsEvsEditor({
           ))}
           {hints.overTotal != null && (
             <p role="alert" className="mt-1 text-center text-[11px] text-pending">
-              {t('These stats ask for {total} EVs, more than the 508 a Pokémon can use. If it has leveled up, change the level.', {
+              {t('These stats ask for {total} EVs, more than the {max} a Pokémon can have. If it has leveled up, change the level.', {
                 total: hints.overTotal,
+                max: MAX_EV_TOTAL,
               })}
             </p>
           )}
@@ -350,9 +408,9 @@ export function StatsEvsEditor({
             </p>
           )}
           {/* An IV the Judge left open means more EVs may be hidden; at the 510 limit nothing more is gained. */}
-          {estimated && range && evTotal(range.high) >= 508 && (
+          {estimated && range && total < MAX_EV_TOTAL && mayBeFull(range.high) && (
             <p role="note" className="mt-1 text-center text-[11px] text-star">
-              {t('Not every IV is known, so it may already have the most EVs it can use (508). If so, the EVs it gains in battle are lost: lower a stat it does not need (with a berry) first.')}
+              {t('Not every IV is known, so it may already have the most EVs it can have ({max}). If so, the EVs it gains in battle are lost: lower a stat it does not need (with a berry) first.', { max: MAX_EV_TOTAL })}
             </p>
           )}
           {estimated && (

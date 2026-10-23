@@ -597,6 +597,15 @@ export function RosterBoard({
           onSetSlot={setSlot}
           onSaveStats={saveStats}
           onStatsRead={(p) => void saveSet(p, { statsRead: true })}
+          onMaxed={(p, maxedEvs) => {
+            replace({ ...p, maxedEvs });
+            void saveSet(p, { maxedEvs }).then((message) => {
+              if (message) {
+                replace(p);
+                setError(t('Could not save that change. It has been undone; try again.'));
+              }
+            });
+          }}
           onOpenDetails={(id) => {
             changeView('list');
             setReveal(id);

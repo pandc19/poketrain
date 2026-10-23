@@ -1,5 +1,6 @@
 import { activeMint, type AuditLocks } from './audit-locks';
 import type { AuditAsk } from './ai/schema';
+import { mintInForce } from './mint';
 
 type Named = { nameEn: string } | null;
 
@@ -11,6 +12,8 @@ export type AuditSubject = {
   currentNature: Named;
   targetNature: Named;
   mintNature: Named;
+  /** A Mint only counts once it has been given (DONE); one only chosen changes nothing yet. */
+  mintStatus: 'PENDING' | 'DONE';
 };
 
 /** What the game offers: EV training, Tera types, and Mints (the game's catalog lists them). */
@@ -23,9 +26,9 @@ export type AuditGame = { hasEvs: boolean; hasTera: boolean; hasMint: boolean };
  */
 export function auditAsk(p: AuditSubject, game: AuditGame) {
   const locks = p.auditLocks;
-  // A fixed Mint only counts while it still holds (the Pokémon has it, or needs none).
+  // A fixed Mint only counts while it still holds (the Pokémon has been given it, or needs none).
   const mintLock = game.hasMint
-    ? activeMint(locks, p.mintNature?.nameEn, (p.currentNature ?? p.targetNature)?.nameEn)
+    ? activeMint(locks, mintInForce(p)?.nameEn, (p.currentNature ?? p.targetNature)?.nameEn)
     : undefined;
   const hasNature = Boolean(p.currentNature || p.targetNature || p.mintNature);
   const planFixed = game.hasEvs && p.evs != null;

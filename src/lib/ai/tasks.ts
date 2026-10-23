@@ -17,13 +17,14 @@ import { potentialLevel } from '../potential';
 import type { RosterView } from '../roster';
 import { type AuditAsk, type BuildAuditRaw, BilingualLocationSchema, type LocationResult, buildAuditSchema } from './schema';
 import { localizeNames } from './names';
-import { mintInForce } from '../mint';
+import { mintInForce, settleMint } from '../mint';
 import { AiError, type AiProvider, type ModelTier } from './types';
 import { RULES_VERSION, ruleAudit, type RuleMove, type RuleNature } from '../audit-rules';
+import { MAX_EV_TOTAL } from '../ev-estimate';
 import { loadChart } from '../battle/load';
 import type { LearnableMoves } from '../breeding/moves';
 
-const PROMPT_VERSION = 21;
+const PROMPT_VERSION = 22;
 
 const SPANISH_RULES =
   'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
@@ -129,12 +130,52 @@ function describeIvRatings(p: RosterView): Record<string, string> | null {
   return Object.keys(out).length ? out : null;
 }
 
+/** PokéAPI's stat slugs ("special-attack") as the stat names the prompt uses. */
+const SLUG_NAMES: Record<string, string> = {
+  attack: STAT_NAMES.attack,
+  defense: STAT_NAMES.defense,
+  'special-attack': STAT_NAMES.specialAttack,
+  'special-defense': STAT_NAMES.specialDefense,
+  speed: STAT_NAMES.speed,
+};
+
+/** "Adamant (+Attack, -Sp. Atk)", or "Hardy (neutral: raises and lowers nothing)". */
+function natureEffect(name: string, natures: RuleNature[]): string {
+  const n = natures.find((x) => x.nameEn.toLowerCase() === name.toLowerCase());
+  if (!n) return name;
+  return n.increased && n.decreased
+    ? `${n.nameEn} (+${SLUG_NAMES[n.increased]}, -${SLUG_NAMES[n.decreased]})`
+    : `${n.nameEn} (neutral: raises and lowers nothing)`;
+}
+
+/**
+ * Its nature and Mint, said plainly: the nature it has, whether a Mint was given (one only chosen does
+ * nothing yet), and the effect the game applies because of that. Models mixed these up when they were
+ * three loose names.
+ */
+function describeNature(p: RosterView, natures: RuleNature[]) {
+  const given = mintInForce(p);
+  const chosen = !given && p.mintNature ? p.mintNature : null;
+  const applied = given ?? p.currentNature ?? p.targetNature;
+  return {
+    itsNature: p.currentNature ? natureEffect(p.currentNature.nameEn, natures) : null,
+    // Not caught or not recorded yet: the nature the player is aiming for stands in for it.
+    ...(p.currentNature ? {} : { natureAimedFor: p.targetNature ? natureEffect(p.targetNature.nameEn, natures) : null }),
+    mint: given
+      ? `${given.nameEn} Mint, already given`
+      : chosen
+        ? `none given (a ${chosen.nameEn} Mint is chosen but not given yet, so it changes nothing)`
+        : 'none',
+    effectTheGameApplies: applied ? natureEffect(applied.nameEn, natures) : null,
+  };
+}
+
 /** All six values with their stat names, so a stat can never be read as an EV or the other way round. */
 const statLine = (v: Record<keyof typeof STAT_NAMES, number>) =>
   Object.fromEntries(Object.entries(STAT_NAMES).map(([k, name]) => [name, v[k as keyof typeof STAT_NAMES]]));
 
 /** A compact, language-neutral description of a Pokémon as it is now, used both as prompt and cache key. */
-function describeBuild(p: RosterView, hasEvs = true) {
+function describeBuild(p: RosterView, natures: RuleNature[], hasEvs = true) {
   const gap = hasEvs && p.evs && p.currentEvs ? evGap(p.evs, p.currentEvs) : null;
   // A Pokémon that has yet to evolve is judged as the stage it is meant to end as: that is what the EVs,
   // moves and item are for. Its stats, ability and level are still those of the stage it is at now.
@@ -154,11 +195,7 @@ function describeBuild(p: RosterView, hasEvs = true) {
     level: p.level,
     // The stats it actually has right now, as the game shows them. These are NOT EVs.
     currentStats: p.currentStats ? statLine(p.currentStats) : null,
-    // The nature it has now, when known, and the one the player is aiming for.
-    currentNature: p.currentNature?.nameEn ?? null,
-    targetNature: p.targetNature?.nameEn ?? null,
-    // The Mint it was given, when there is one. Its effect, not the real nature's, is what the game applies to the stats.
-    mintNature: mintInForce(p)?.nameEn ?? null,
+    natureAndMint: describeNature(p, natures),
     ability: p.ability?.nameEn ?? null,
     heldItem: p.item?.nameEn ?? p.itemNote,
     ...(hasEvs
@@ -166,11 +203,13 @@ function describeBuild(p: RosterView, hasEvs = true) {
           // EVs per stat, all six listed. Not the same thing as the stats above.
           currentEvs: p.currentEvs ? statLine(p.currentEvs) : null,
           maxEvsPerStat: 252,
-          maxEvsTotal: 508,
+          maxEvsTotal: MAX_EV_TOTAL,
           currentEvsTotal: p.currentEvs ? evTotal(p.currentEvs) : null,
-          evsLeftToTrain: p.currentEvs ? Math.max(0, 508 - evTotal(p.currentEvs)) : null,
+          evsLeftToTrain: p.currentEvs ? Math.max(0, MAX_EV_TOTAL - evTotal(p.currentEvs)) : null,
           // Worked out from the stats and IV ratings, so they may be a little low.
           currentEvsAreEstimated: p.currentEvs ? p.currentEvsEstimated : null,
+          // What the game shows: sparkles on a stat mean it has the full 252. Once looked at, the rest are not full.
+          statsWithFullEvsInGame: p.maxedEvs ? p.maxedEvs.map((k) => STAT_NAMES[k]) : null,
           // The spread the player is training towards, when there is one. The plan is then fixed.
           ...(p.evs
             ? {
@@ -205,7 +244,9 @@ export async function auditBuild(
   const hasEvs = game.features.evs;
   // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
   const hasTarget = hasEvs && game.features.evTarget;
-  const build = describeBuild(p, hasEvs);
+  // Every nature with what it raises and lowers, so the model reads effects from data rather than memory.
+  const natures: RuleNature[] = await prisma.nature.findMany({ select: { nameEn: true, increased: true, decreased: true } });
+  const build = describeBuild(p, natures, hasEvs);
   const illegal = p.moves.filter((m) => m.legal === false).map((m) => m.move!.nameEn);
 
   // Everything it can legally have in this game, so suggestions come from real options.
@@ -253,7 +294,7 @@ export async function auditBuild(
           heldItem: locks?.heldItem ?? raw.heldItem,
           recommendedMoves: withFixedMoves(locks?.moves, raw.recommendedMoves ?? []),
           ...(hasTera ? { teraType: locks?.teraType ?? raw.teraType } : {}),
-          ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : raw.mint } : {}),
+          ...(hasMint ? { mint: mintLock ? { ...mintLock, keep: true } : raw.mint ? settleMint(raw.mint, (mintInForce(p) ?? p.currentNature ?? p.targetNature)?.nameEn, natures) : undefined } : {}),
           ...(raw.nature ? { nature: raw.nature } : {}),
         };
         // In Spanish, game names the model left in English inside its sentences are put in the game's own Spanish.
@@ -265,9 +306,9 @@ export async function auditBuild(
         if ('nature' in parts && parts.nature) parts.nature = { ...parts.nature, reason: await say(parts.nature.reason) };
         if (!hasEvs) return parts;
         // The spread is the model's proposal (or the player's fixed plan); what it means for this Pokémon is worked out here.
-        // A fixed plan is kept, only made legal again (amounts in fours, 252 and 508 caps).
+        // A fixed plan is kept, only made legal again (252 and 510 caps).
         const proposed = legalPlan((p.evs ?? raw.evPlan?.spread) as EvSpread, p.currentEvs, !hasTarget);
-        // The model's leftover EVs are spent too (252 / 252 / 4, not 252 / 252): a plan the player fixed is kept as it is.
+        // The model's leftover EVs are spent too (252 / 252 / 6, not 252 / 252): a plan the player fixed is kept as it is.
         const plan = p.evs ? proposed : fillPlan(proposed);
         if (p.evs && formatEvs(plan) !== formatEvs(p.evs)) {
           // The fixed plan was saved before these rules: save it as it now reads.
@@ -301,7 +342,8 @@ export async function auditBuild(
       tier: deep ? 'deep' : 'bulk',
       prompt: [
         'Give exactly what the player needs for this Pokémon as it is right now, and nothing else. ' +
-          'Work with what it already has: its nature, ability, potential, current EVs, held item and known moves are the starting point. Do not propose rebuilding it. ' +
+          'Work with what it already has: its nature (and Mint), ability, potential, current EVs, held item and known moves are the starting point. Do not propose rebuilding it. ' +
+          'The data below is its current state as the player recorded it; trust it over assumptions, and where a value is null it is not known. ' +
           'When ability is not null it is part of the build, so every part below must work with it: choose the item, moves, nature, EVs and Tera type that make use of it, ' +
           'avoid ones it makes pointless or works against, and name the ability in a reason when it is why you chose something. When it is null, do not assume one. ' +
           'Answer only the parts asked for below.',
@@ -315,15 +357,16 @@ export async function auditBuild(
         ask.evPlan
           ? 'evPlan: currentStats are the numbers the game shows (HP 331, Attack 328…). They are NOT EVs, so never use them for the plan. ' +
             'EV rules, which the spread must follow exactly: ' +
-            '(1) a stat holds at most 252 EVs (maxEvsPerStat). ' +
-            '(2) A Pokémon holds at most 510 EVs in all, but EVs count in fours, so 508 is the most that does anything (maxEvsTotal): 252 + 252 + 4. ' +
-            '(3) Every amount is a multiple of 4 (6 is no better than 4). ' +
+            '(1) A stat holds at most 252 EVs (maxEvsPerStat). ' +
+            `(2) A Pokémon holds at most ${MAX_EV_TOTAL} EVs in all (maxEvsTotal). ` +
+            '(3) Every amount is a whole number of EVs. ' +
             '(4) The spread is what it should HAVE when finished, per stat, not what to add. currentEvs is what it has now, currentEvsTotal their sum, and evsLeftToTrain is maxEvsTotal minus that sum. ' +
-            '(5) The six numbers add up to at most 508, and should add up to exactly 508: spread the EVs in three stats (for example 252 / 252 / 4), because EVs left unspent are stat points thrown away. ' +
+            'statsWithFullEvsInGame, when not null, lists the stats the game shows with the full 252; every other stat has fewer. ' +
+            `(5) The six numbers add up to at most ${MAX_EV_TOTAL}, and should add up to exactly ${MAX_EV_TOTAL}: spread the EVs in three stats (for example 252 / 252 / 6), because EVs left unspent are stat points thrown away. ` +
             (hasTarget
               ? 'EVs are easy to retrain in this game, so choose the best spread for its role, nature, base stats and moves; currentEvs only says where it starts. '
               : 'Its EVs are hard to change in this game, so every stat must stay at or above its currentEvs: only add to them, never start over, and the EVs you add in total must not go over evsLeftToTrain. ') +
-            'Put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed); the last 4 go to HP or the bulk stat it benefits from. ' +
+            'Put them only into the stats its role really needs (a physical attacker needs no Sp. Atk, and a slow bulky Pokémon rarely needs Speed); the last 6 go to HP or the bulk stat it benefits from. ' +
             'Do not say which Pokémon to battle, or give vitamin counts or EV arithmetic: the app works those out.' +
             (game.evNote ? ` About EV training in this game: ${game.evNote}` : '')
           : '',
@@ -348,14 +391,12 @@ export async function auditBuild(
             'Do not fall back on a common nature: the answer must follow from this Pokémon. Give the nature in English and a one-sentence reason.'
           : '',
         ask.mint
-          ? 'mint: a Mint changes which stats a nature raises and lowers without changing the nature. The effect the game applies is mintNature when it is given, otherwise currentNature (or targetNature when currentNature is unknown). ' +
-            'Judge that effect against its role, base stats and the moves it will have: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one). ' +
-            'If the effect it has is already the best one, set keep to true and nature to that nature. Otherwise set keep to false and nature to the better one, in English. ' +
-            (mintInForce(p)
-              ? 'It holds a Mint now, so keep true means to leave it as it is. '
-              : 'It has NO Mint: never tell the player to keep a Mint. If its own nature already has the best effect, set keep to true and say in the reason that no Mint is needed; ' +
-                'otherwise set keep to false and suggest using that nature’s Mint. ') +
-            'Give a one-sentence reason.'
+          ? 'mint: a Mint makes the game apply another nature’s stat effect, without changing the nature itself. ' +
+            'natureAndMint.effectTheGameApplies is the effect it has right now (natureAndMint.mint says whether a Mint was given; a Mint only chosen changes nothing). ' +
+            'Say which of the 25 natures has the best effect for it: the raised stat should be the one it attacks or speeds with, and the lowered one a stat it never uses (Attack for a special attacker, Sp. Atk for a physical one), ' +
+            'judged against its role, base stats, ability and the moves it will have. If the effect it has now is already the best, name the nature it applies now. ' +
+            'Give the nature in English, and a one-sentence reason saying what that effect raises and lowers and why that suits it. ' +
+            'Do not say in the reason whether it has a Mint, nor whether to keep, use or buy one: the app says that from your answer and its current state.'
           : '',
         ask.tera
           ? 'teraType: the best Tera type for it, given its ability, held item and moves: one that covers a weakness or powers up its main attacks. ' +
