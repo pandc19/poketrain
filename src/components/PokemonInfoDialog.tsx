@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { InfoIcon } from './ActionIcons';
+import { AiHelp, AiUnavailable, DemoAiNote, useAiAccess } from './AiAccess';
+import { AiBadge } from './AiBadge';
 import { Dialog } from './Dialog';
 import { PokeBallMark } from './PokeBallIcon';
 import { Sprite } from './Sprite';
 import { TypeBadge } from './TypeBadge';
+import { useCachedLocations } from './useCachedLocations';
+import type { LocationResult } from '@/lib/ai/schema';
 import type { Lang } from '@/lib/i18n';
 import type { PokemonInfo } from '@/lib/pokeapi/info';
 import { useT } from '@/lib/translate-client';
@@ -104,6 +108,76 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
       <dt className="text-xs font-medium text-muted">{label}</dt>
       <dd className="mt-0.5 text-sm">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * Where to catch the species in this game. A saved answer shows straight away; otherwise a button
+ * asks the AI (when the player has it), and the answer is saved for everyone.
+ */
+function WhereToFind({ speciesId, gameId }: { speciesId: number; gameId: string }) {
+  const { t } = useT();
+  const { enabled: aiEnabled } = useAiAccess();
+  const saved = useCachedLocations(gameId, [speciesId])[speciesId];
+  const [state, setState] = useState<{ busy: boolean; result?: LocationResult; error?: string }>({ busy: false });
+  const result = state.result ?? saved;
+
+  async function locate(refresh = false) {
+    setState({ busy: true });
+    try {
+      const res = await fetch('/api/ai/location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, speciesId, refresh }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? t('Lookup failed.'));
+      setState({ busy: false, result: data.result });
+    } catch (e) {
+      setState({ busy: false, error: e instanceof Error ? e.message : t('Lookup failed.') });
+    }
+  }
+
+  return (
+    <section>
+      <h3 className="section-title mb-2">{t('Where to find it')}</h3>
+      {result ? (
+        <div className="rounded-lg bg-surface-2 p-3 text-sm text-muted">
+          {result.locations.map((l, i) => (
+            <p key={i}>
+              <span className="font-medium text-ink">{l.place}</span>
+              {l.nearby && ` · ${t('Near')}: ${l.nearby}`} · {l.details}
+            </p>
+          ))}
+          {result.notes && <p className="mt-1">{result.notes}</p>}
+          {aiEnabled && (
+            <button onClick={() => locate(true)} disabled={state.busy} className="mt-1 text-xs underline disabled:opacity-40">
+              {state.busy ? t('Searching…') : t('Search again')}
+            </button>
+          )}
+          <p className="mt-1 flex items-center gap-1.5 text-[10px]">
+            <AiBadge /> {t('AI-researched. Check in game before relying on it.')}
+          </p>
+          <DemoAiNote />
+        </div>
+      ) : aiEnabled ? (
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => locate()}
+            disabled={state.busy}
+            className="rounded border border-line px-2 py-1 text-xs text-muted hover:text-ink disabled:opacity-40"
+          >
+            {state.busy ? t('Searching…') : t('Where do I find it?')}
+          </button>
+          <AiHelp kind="location" />
+        </div>
+      ) : (
+        <p className="text-xs text-muted">
+          {t('Nobody has found where it lives yet.')} <AiUnavailable kind="location" />
+        </p>
+      )}
+      {state.error && <p className="mt-1 text-sm text-pending">{state.error}</p>}
+    </section>
   );
 }
 
@@ -320,6 +394,8 @@ export function PokemonInfoDialog({
             <Fact label={t('Base friendship')}>{info.baseHappiness ?? '—'}</Fact>
             <Fact label={t('Generation')}>{info.generation ? info.generation.replace('generation-', '').toUpperCase() : '—'}</Fact>
           </dl>
+
+          {gameId && <WhereToFind key={`${gameId}:${info.id}`} speciesId={info.id} gameId={gameId} />}
 
           {info.evolutions.length > 1 && (
             <section>

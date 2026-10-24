@@ -424,6 +424,7 @@ export const ES: Record<string, string> = {
   'Weight': 'Peso',
   'What the Pokémon has right now': 'Lo que tiene el Pokémon ahora mismo',
   'What the in-game Judge (Juez) says about this Pokémon': 'Lo que dice el Juez del juego sobre este Pokémon',
+  'Where to find it': 'Dónde encontrarlo',
   'Where do I catch it?': '¿Dónde lo capturo?',
   'Where do I find it?': '¿Dónde lo encuentro?',
   'You do not have this yet.': 'Aún no tienes esto.',
