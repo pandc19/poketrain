@@ -941,20 +941,24 @@ export function RosterDetail({
                     const current = p.moves.find((x) => x.slot === slot)?.move;
                     const same = current != null && current.nameEn.toLowerCase() === m.move.toLowerCase();
                     return (
-                      <li key={m.move} title={m.reason} className="flex items-center gap-2">
-                        <span className="w-4 shrink-0 text-center text-muted">{slot}</span>
-                        {same ? (
-                          <span className="flex-1 rounded border border-done/50 px-2 py-1 text-done">✓ {moveName(m.move)}</span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => applyMove(m.move, slot)}
-                            className="flex-1 rounded border border-pending/50 px-2 py-1 text-left text-pending hover:bg-pending/10"
-                          >
-                            {moveName(m.move)}
-                            {m.has && <span className="ml-1 text-muted">({t('in another slot')})</span>}
-                          </button>
-                        )}
+                      <li key={m.move} title={m.reason} className="flex items-start gap-2">
+                        <span className="w-4 shrink-0 pt-1 text-center text-muted">{slot}</span>
+                        <div className="flex-1">
+                          {same ? (
+                            <span className="block rounded border border-done/50 px-2 py-1 text-done">✓ {moveName(m.move)}</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => applyMove(m.move, slot)}
+                              className="block w-full rounded border border-pending/50 px-2 py-1 text-left text-pending hover:bg-pending/10"
+                            >
+                              {moveName(m.move)}
+                              {m.has && <span className="ml-1 text-muted">({t('in another slot')})</span>}
+                            </button>
+                          )}
+                          {/* An egg move it does not have yet: how to get it. */}
+                          {m.how && !same && <p className="mt-0.5 text-[10px] text-star">{m.how}</p>}
+                        </div>
                       </li>
                     );
                   })}

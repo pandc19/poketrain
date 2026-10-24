@@ -249,6 +249,9 @@ model User {
   aiModel        String?   @map("ai_model")
   /// When this user's data was last replaced by a copy of the admin's. Only the demo has one.
   dataCopiedAt   DateTime? @map("data_copied_at")
+  /// The language their game is set to, which names moves, items and abilities when the app is in Spanish:
+  /// "es" (Spain) or "es-419" (Latin America).
+  gameLanguage   String    @default("es") @map("game_language")
   createdAt      DateTime  @default(now()) @map("created_at")
 
   profiles       GameProfile[]
@@ -703,4 +706,13 @@ model TeamSlot {
   @@unique([profileId, slot])
   @@unique([rosterPokemonId])
   @@map("team_slots")
+}
+
+/// The Latin American Spanish name (PokéAPI's es-419) of a move, item or ability, by its English name, only
+/// where it differs from the Spain name in the tables. Read when a player's game language is Latin American.
+model NameVariant {
+  nameEn    String @id @map("name_en")
+  nameEs419 String @map("name_es_419")
+
+  @@map("name_variants")
 }

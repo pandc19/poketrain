@@ -361,6 +361,7 @@ export function AuditPanel({
               <li key={i}>
                 <span className="font-medium">{localize ? localize('move', m.move) : m.move}</span>
                 <span className="text-muted"> · {m.reason}</span>
+                {m.how && <span className="block text-star">{m.how}</span>}
               </li>
             ))}
           </ul>

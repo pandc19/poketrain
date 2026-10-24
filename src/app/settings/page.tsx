@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { NameForm } from '@/components/auth/NameForm';
 import { PasswordForm } from '@/components/auth/PasswordForm';
 import { MyGames } from '@/components/games/MyGames';
+import { GameLanguageForm } from '@/components/settings/GameLanguageForm';
 import { getUser } from '@/lib/current-user';
 import { GAMES, gameName, gameShortName } from '@/lib/games';
 import { getLang, getT } from '@/lib/i18n';
@@ -33,6 +34,16 @@ export default async function SettingsPage() {
           <PasswordForm />
         </div>
       </section>
+
+      {/* It only names things when the app is in Spanish, so in English there is nothing to choose. */}
+      {lang === 'es' && (
+        <section className="rounded-xl border border-line bg-surface p-5">
+          <h2 className="section-title">{t('Game language')}</h2>
+          <div className="mt-4">
+            <GameLanguageForm current={user.gameLanguage} />
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-line bg-surface p-5">
         <h2 className="section-title">{t('My games')}</h2>

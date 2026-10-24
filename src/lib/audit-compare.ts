@@ -2,7 +2,7 @@
 
 type AuditLike = {
   heldItem?: { item: string; reason: string };
-  recommendedMoves?: { move: string; reason: string }[];
+  recommendedMoves?: { move: string; reason: string; how?: string }[];
   teraType?: { type: string; reason: string };
   mint?: { nature: string; keep: boolean; reason: string };
   nature?: { nature: string; reason: string };
@@ -27,7 +27,7 @@ export type Current = {
 
 export type AuditSuggestions = {
   item?: { name: string; reason: string; same: boolean };
-  moves?: { move: string; reason: string; has: boolean }[];
+  moves?: { move: string; reason: string; how?: string; has: boolean }[];
   tera?: { type: string; reason: string; same: boolean };
   /** `target` is the Mint its Mint field should hold (null: none), the one Apply chooses. */
   mint?: { nature: string; keep: boolean; reason: string; target: string | null; same: boolean };

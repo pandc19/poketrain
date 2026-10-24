@@ -79,6 +79,21 @@ const names = (d: Json) => {
   return { nameEn, nameEs: SPANISH_FIX_BY_SLUG.get(d.name) ?? nameIn(d.names, 'es') ?? nameEn };
 };
 
+/**
+ * The Latin American Spanish names (PokéAPI's es-419) of moves, abilities and items, by English name, for the ones
+ * that differ from the Spain name the app shows. A name PokéAPI has no Latin American version of keeps Spain's.
+ */
+function nameVariants(...lists: Json[][]): { nameEn: string; nameEs419: string }[] {
+  const out = new Map<string, string>();
+  for (const d of lists.flat()) {
+    const en = nameIn(d.names, 'en');
+    const latin = nameIn(d.names, 'es-419');
+    if (!en || !latin || out.has(en)) continue;
+    if (latin !== names(d).nameEs) out.set(en, latin);
+  }
+  return [...out].map(([nameEn, nameEs419]) => ({ nameEn, nameEs419 }));
+}
+
 /** One sentence on what an ability does, in each language (Spanish is flavor text, English the short effect). */
 const abilityDescriptions = (d: Json) => {
   const clean = (s?: string) => s?.replace(/[\n\f]+/g, ' ').replace(/\s+/g, ' ').trim() || null;
@@ -280,6 +295,10 @@ async function main() {
     };
     await prisma.item.upsert({ where: { id: it.id }, update: data, create: { id: it.id, ...data } });
   }
+
+  const variants = nameVariants(moves, abilities, items);
+  await prisma.$transaction([prisma.nameVariant.deleteMany(), prisma.nameVariant.createMany({ data: variants })]);
+  console.log(`  Latin American Spanish names: ${variants.length}`);
 
   console.log('pokedexes');
   // Paired games list the same Pokédexes; each is synced once. Which games list it is in the game config.
