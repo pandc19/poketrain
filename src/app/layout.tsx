@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Chakra_Petch, Figtree } from "next/font/google";
 import "./globals.css";
 import { AiAccessProvider } from "@/components/AiAccess";
+import { GameLanguageSync } from "@/components/settings/GameLanguageSync";
+import { getGameLanguage } from "@/lib/game-language";
 import { Header } from "@/components/Header";
 import { canUseAi } from "@/lib/ai/user-provider";
 import { ownedGameIds } from "@/lib/my-games";
@@ -35,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [lang, theme, user] = await Promise.all([getLang(), getTheme(), getUser()]);
+  const [lang, theme, user, gameLanguage] = await Promise.all([getLang(), getTheme(), getUser(), getGameLanguage()]);
   const [aiEnabled, owned] = await Promise.all([canUseAi(user), ownedGameIds(user.id)]);
   // Item names come from the game data when it has them, so what the catalog says to search
   // for is what the game really calls the item (the names written in the catalog are a fallback).
@@ -53,6 +55,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <LangProvider lang={lang}>
+          {!user.isDemo && gameLanguage !== user.gameLanguage && <GameLanguageSync />}
           <Header
             user={{ name: firstName(user.name), admin: user.role === 'ADMIN', demo: user.isDemo }}
             canAddGames={!user.isDemo}

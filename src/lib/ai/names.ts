@@ -1,19 +1,23 @@
 import { prisma } from '../db';
+import { getGameLanguage } from '../game-language';
 import { SCARLET_VIOLET_PLACES } from '../games/places';
 import type { Lang } from '../i18n';
 import type { LocationBody } from '../location-text';
+import type { GameLanguage } from '../name-variants';
 
 type Dictionary = { map: Map<string, string>; re: RegExp };
-let loading: Promise<Dictionary> | null = null;
+/** One dictionary for each Spanish: the names are read the way the player's game language calls them (see db.ts). */
+const loading = new Map<GameLanguage, Promise<Dictionary>>();
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
  * Every game name that differs between English and Spanish (places, moves, items, abilities, natures, Pokémon), loaded
- * once per server run. It is what the game itself calls them in Spanish, taken from the synced game data.
+ * once per server run and game language. It is what the game itself calls them in Spanish, taken from the synced
+ * game data.
  */
-function load(): Promise<Dictionary> {
-  loading ??= (async () => {
+function load(variant: GameLanguage): Promise<Dictionary> {
+  if (!loading.has(variant)) loading.set(variant, (async () => {
     const [moves, items, abilities, natures, species] = await Promise.all([
       prisma.move.findMany({ select: { nameEn: true, nameEs: true } }),
       prisma.item.findMany({ select: { nameEn: true, nameEs: true } }),
@@ -33,8 +37,8 @@ function load(): Promise<Dictionary> {
     const names = [...map.keys()].sort((a, b) => b.length - a.length).map(escape);
     const re = new RegExp(`(?<![\\p{L}\\p{N}])(?:${names.join('|')})(?![\\p{L}\\p{N}])`, 'gu');
     return { map, re };
-  })();
-  return loading;
+  })());
+  return loading.get(variant)!;
 }
 
 /**
@@ -43,7 +47,7 @@ function load(): Promise<Dictionary> {
  */
 export async function localizeNames(text: string, lang: Lang): Promise<string> {
   if (lang !== 'es' || !text) return text;
-  const { map, re } = await load();
+  const { map, re } = await load(await getGameLanguage());
   return text.replace(re, (name) => map.get(name) ?? name);
 }
 

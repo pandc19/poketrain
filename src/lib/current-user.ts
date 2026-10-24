@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { userForToken } from './auth/accounts';
 import { SESSION_COOKIE } from './auth/cookie';
 import { DEMO_USER_ID } from './constants';
+import { parseGameLanguage, type GameLanguage } from './name-variants';
 
 export type CurrentUser = {
   id: string;
@@ -11,17 +12,19 @@ export type CurrentUser = {
   lastName: string;
   email: string | null;
   role: 'ADMIN' | 'USER';
+  /** The language their game is set to (names of moves, items and abilities in Spanish). */
+  gameLanguage: GameLanguage;
   /** Nobody is logged in: this is the shared demo. */
   isDemo: boolean;
 };
 
-const DEMO: CurrentUser = { id: DEMO_USER_ID, name: 'Demo', lastName: '', email: null, role: 'USER', isDemo: true };
+const DEMO: CurrentUser = { id: DEMO_USER_ID, name: 'Demo', lastName: '', email: null, role: 'USER', gameLanguage: 'es', isDemo: true };
 
 /** Who is using the app: the logged-in user, or else the demo. Looked up once per request. */
 export const getUser = cache(async (): Promise<CurrentUser> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const user = token ? await userForToken(token) : null;
-  return user ? { ...user, isDemo: false } : DEMO;
+  return user ? { ...user, gameLanguage: parseGameLanguage(user.gameLanguage), isDemo: false } : DEMO;
 });
 
 /**

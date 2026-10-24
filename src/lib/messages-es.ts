@@ -303,6 +303,8 @@ export const ES: Record<string, string> = {
   'The dashed line is your plan.': 'La línea discontinua es tu plan.',
   'The EVs on record.': 'Los EVs guardados.',
   'Worked out from the stats.': 'Calculados a partir de las estadísticas.',
+  'Game language': 'Idioma del juego',
+  'Moves, items and abilities are named as your game names them, when the app is in Spanish. The AI audit uses them too.': 'Los movimientos, objetos y habilidades se llaman como en tu juego, cuando la app está en español. La auditoría con IA también los usa.',
   '{stat}: its EVs sparkle in the game (252)': '{stat}: sus EVs brillan en el juego (252)',
   '✦ marks the stats whose EVs sparkle in the game (252). The others are read as not full.': '✦ marca las estadísticas cuyos EVs brillan en el juego (252). Las demás se leen como no completas.',
   'Tap ✦ on each stat whose EVs sparkle in the game (252): the stats alone cannot always tell 252 from a few fewer.': 'Toca ✦ en cada estadística cuyos EVs brillen en el juego (252): las estadísticas solas no siempre distinguen 252 de unos pocos menos.',

@@ -21,30 +21,26 @@ import { mintInForce, settleMint } from '../mint';
 import { AiError, type AiProvider, type ModelTier } from './types';
 import { RULES_VERSION, ruleAudit, type RuleInput, type RuleMove, type RuleNature } from '../audit-rules';
 import { MAX_EV_TOTAL, estimateEvRange } from '../ev-estimate';
+import { getGameLanguage } from '../game-language';
+import type { GameLanguage } from '../name-variants';
+import { spanishRules } from './spanish';
 import { ivAssumption, potentialLevel } from '../potential';
 import { loadChart } from '../battle/load';
 import type { LearnableMoves } from '../breeding/moves';
 
-const PROMPT_VERSION = 25;
+const PROMPT_VERSION = 26;
 
-const SPANISH_RULES =
-  'Write every text field in Spanish from Spain (español de España), in the plain and direct way a player would say it. ' +
-  'In sentences, name Pokémon, moves, items (TMs, vitamins, berries, Mints), abilities, natures, types, towns, areas and fast-travel points exactly as the Spanish (Spain) version of the game shows them, ' +
-  'as the Spanish WikiDex lists them (for example Roca Afilada, Cinta Elegida, Proteína, Firme, Intimidación), never a translation of your own. ' +
-  'If you are not sure of the Spanish name, write the English one rather than inventing it. ' +
-  'The only exception are fields that hold an identifier the app matches (the move, the item, the nature of a Mint, a Tera type and a Pokémon to look up): those stay in English exactly as the English game spells them.';
-
-/** `both` is for an answer stored in the shared dictionary, which carries an English and a Spanish version. */
-const system = (game: GameConfig, lang: Lang | 'both') =>
+/** `both` is for an answer stored in the shared dictionary, which carries an English and a Spanish version (Spain's). */
+const system = (game: GameConfig, lang: Lang | 'both', names: GameLanguage = 'es') =>
   [
     `You are a competitive Pokémon coach helping one player with ${game.name}.`,
     `Only recommend Pokémon, moves, items and mechanics that exist in ${game.name}, including its DLC.`,
     'Be specific and practical. If you are not sure where something is found, say so rather than guessing.',
     'Prefer advice the player can act on without starting over: say what is easy, and never suggest a move the Pokémon cannot learn in this game.',
     lang === 'es'
-      ? SPANISH_RULES
+      ? spanishRules(names)
       : lang === 'both'
-        ? `Fill in two versions of every text field. The "en" object is written in English. The "es" object is written like this: ${SPANISH_RULES}`
+        ? `Fill in two versions of every text field. The "en" object is written in English. The "es" object is written like this: ${spanishRules('es')}`
         : 'Write every text field in English.',
   ].join(' ');
 
@@ -354,6 +350,8 @@ export async function auditBuild(
   rules?: (ctx: RulesContext) => Promise<Partial<BuildAuditRaw>>
 ) {
   const hasEvs = game.features.evs;
+  // The Spanish its sentences are written in: the player's game language, the one that names things on screen.
+  const names = await getGameLanguage();
   // Where EVs are easy to reset, a target spread makes sense; elsewhere work from what it has.
   const hasTarget = hasEvs && game.features.evTarget;
   // Every nature with what it raises and lowers, so the model reads effects from data rather than memory.
@@ -397,9 +395,18 @@ export async function auditBuild(
     source,
     { kind: 'build', profileId, rosterPokemonId: p.id, refresh, lang },
     // Rules and fixed parts are deterministic and cheap, so each Pokémon keeps its own: the answer is not shared by identical builds.
-    { build, illegal, legalMovePool, lang, locks: p.auditLocks, ...(rules || nothingToAsk ? { pokemonId: p.id } : {}) },
     {
-      system: system(game, lang),
+      build,
+      illegal,
+      legalMovePool,
+      lang,
+      locks: p.auditLocks,
+      // Spain keeps the answers it has; Latin America gets its own, as the names in the sentences differ.
+      ...(lang === 'es' && names === 'es-419' ? { names } : {}),
+      ...(rules || nothingToAsk ? { pokemonId: p.id } : {}),
+    },
+    {
+      system: system(game, lang, names),
       schema: buildAuditSchema(ask, hasEvs),
       finish: async (raw) => {
         const locks = p.auditLocks;

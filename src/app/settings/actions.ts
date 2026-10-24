@@ -10,6 +10,8 @@ import { take } from '@/lib/auth/rate-limit';
 import { cleanName, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/auth/rules';
 import { getUser } from '@/lib/current-user';
 import { prisma } from '@/lib/db';
+import { GAME_LANG_COOKIE, gameLanguageCookie } from '@/lib/game-language';
+import { GAME_LANGUAGES, parseGameLanguage } from '@/lib/name-variants';
 import { canStoreSecrets, decryptSecret, encryptSecret } from '@/lib/secret-box';
 
 /** Short codes, not text: the form turns them into words in the player's language. */
@@ -122,4 +124,26 @@ export async function changePassword(_state: PasswordFormState, formData: FormDa
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!(await saveNewPassword(user.id, current, password, token))) return { error: 'wrong' };
   return { saved: true };
+}
+
+/**
+ * Saves the language their game is set to, and puts it in the cookie names are read with (see game-language.ts).
+ * Everything that shows a name follows it from the next render.
+ */
+export async function saveGameLanguage(value: string): Promise<void> {
+  const user = await getUser();
+  if (user.isDemo) redirect('/login');
+  if (!(GAME_LANGUAGES as readonly string[]).includes(value)) return;
+  const gameLanguage = parseGameLanguage(value);
+  await prisma.user.update({ where: { id: user.id }, data: { gameLanguage } });
+  (await cookies()).set(GAME_LANG_COOKIE, gameLanguage, gameLanguageCookie);
+  revalidatePath('/', 'layout');
+}
+
+/** Puts the saved language in the cookie when this browser has another (it was changed from another device). */
+export async function syncGameLanguage(): Promise<void> {
+  const user = await getUser();
+  if (user.isDemo) return;
+  (await cookies()).set(GAME_LANG_COOKIE, user.gameLanguage, gameLanguageCookie);
+  revalidatePath('/', 'layout');
 }

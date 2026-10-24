@@ -17,9 +17,11 @@ export type SessionUser = {
   lastName: string;
   email: string | null;
   role: 'ADMIN' | 'USER';
+  /** "es" or "es-419" (see name-variants.ts). */
+  gameLanguage: string;
 };
 
-const userSelect = { id: true, name: true, lastName: true, email: true, role: true } as const;
+const userSelect = { id: true, name: true, lastName: true, email: true, role: true, gameLanguage: true } as const;
 
 /** Emails are compared in lower case. */
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
