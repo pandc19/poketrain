@@ -9,6 +9,7 @@ import { evGap, evTotal, formatEvs, type EvSpread } from '../import/evs';
 import { auditAsk, gameHasMints } from '../audit-ask';
 import { withFixedMoves } from '../audit-locks';
 import { keepLegalMoves, resolveName } from '../audit-names';
+import { eggMoveHint, type Teacher } from '../egg-hint';
 import { STAT_NAMES, loadEvSources } from '../ev-catalog';
 import { describePlan, legalPlan, shapePlan, trainingItemsFor } from '../ev-plan';
 import { syncEvStatus } from '../ev-sync';
@@ -28,7 +29,7 @@ import { ivAssumption, potentialLevel } from '../potential';
 import { loadChart } from '../battle/load';
 import type { LearnableMoves } from '../breeding/moves';
 
-const PROMPT_VERSION = 26;
+const PROMPT_VERSION = 27;
 
 /** `both` is for an answer stored in the shared dictionary, which carries an English and a Spanish version (Spain's). */
 const system = (game: GameConfig, lang: Lang | 'both', names: GameLanguage = 'es') =>
@@ -259,6 +260,85 @@ function describeBuild(p: RosterView, natures: RuleNature[], planned: string | n
   };
 }
 
+/**
+ * Egg moves it can really get in this game, and how. A move it learns only by breeding is possible only when
+ * some Pokémon that knows it without breeding is in the game (or one of the player's does): that one can pass it
+ * on, in a nursery or at a picnic with a Mirror Herb. An egg move nobody can teach (Heal Bell on a Blissey, which
+ * only Chimecho knows, and not in its egg group) is not in the pool, so it is never suggested. The hint of each
+ * move it does not have says who can teach it.
+ */
+export async function reachableEggMoves(
+  game: GameConfig,
+  lang: Lang,
+  p: RosterView,
+  profileId: string,
+  pool: LearnableMoves
+): Promise<{ pool: LearnableMoves; hints: Map<string, string> }> {
+  const ids = pool.egg.map((m) => m.id);
+  if (!ids.length) return { pool, hints: new Map() };
+  const dexes = game.pokedexes.map((d) => d.slug);
+  const [learners, owned, herb] = await Promise.all([
+    prisma.learnset.findMany({
+      where: { moveId: { in: ids }, versionGroup: { in: game.learnsetVersionGroups }, method: { not: 'egg' } },
+      select: { moveId: true, form: { select: { speciesId: true } } },
+      distinct: ['moveId', 'formId'],
+    }),
+    // Its own moves count as they are (a planned one too); another Pokémon teaches only what it has learned.
+    prisma.rosterMove.findMany({
+      where: { moveId: { in: ids }, rosterPokemon: { profileId }, OR: [{ rosterPokemonId: p.id }, { status: 'DONE' }] },
+      select: { moveId: true, rosterPokemonId: true, rosterPokemon: { select: { speciesId: true } } },
+    }),
+    prisma.item.findUnique({ where: { slug: 'mirror-herb' }, select: { nameEn: true, nameEs: true } }),
+  ]);
+  const speciesIds = [...new Set([...learners.map((l) => l.form.speciesId), ...owned.map((o) => o.rosterPokemon.speciesId)])];
+  const [species, slots] = await Promise.all([
+    prisma.species.findMany({ where: { id: { in: speciesIds } }, select: { id: true, nameEn: true, nameEs: true, eggGroups: true } }),
+    prisma.pokedexSlot.findMany({
+      where: { speciesId: { in: speciesIds }, pokedex: { slug: { in: dexes } } },
+      select: { speciesId: true, pokedex: { select: { slug: true } } },
+    }),
+  ]);
+  const byId = new Map(species.map((s) => [s.id, s]));
+  const inGame = new Map<number, string[]>();
+  for (const s of slots) inGame.set(s.speciesId, [...(inGame.get(s.speciesId) ?? []), s.pokedex.slug]);
+
+  const teacher = (id: number, isOwned: boolean): Teacher | null => {
+    const s = byId.get(id);
+    const found = inGame.get(id);
+    if (!s || (!found && !isOwned)) return null;
+    const home = game.pokedexes.find((d) => found?.includes(d.slug));
+    return {
+      nameEn: s.nameEn,
+      nameEs: s.nameEs,
+      owned: isOwned,
+      breeds: !s.eggGroups.includes('no-eggs'),
+      inBaseGame: found?.includes(game.pokedexes[0].slug) ?? false,
+      where: home && home !== game.pokedexes[0] ? home.note[lang === 'en' ? 'en' : 'es'] : null,
+    };
+  };
+  const knownNow = new Set(p.moves.flatMap((m) => (m.move ? [m.move.nameEn] : [])));
+  const hints = new Map<string, string>();
+  const egg = pool.egg.filter((m) => {
+    if (knownNow.has(m.nameEn)) return true;
+    // One entry for each species; the player's own replaces the game's when they are the same species.
+    const teachers = new Map<number, Teacher>();
+    const add = (id: number, isOwned: boolean) => {
+      const t = teacher(id, isOwned);
+      if (t) teachers.set(id, t);
+    };
+    for (const l of learners) if (l.moveId === m.id) add(l.form.speciesId, false);
+    for (const o of owned) if (o.moveId === m.id && o.rosterPokemonId !== p.id) add(o.rosterPokemon.speciesId, true);
+    const list = [...teachers.values()];
+    if (!list.length) return false;
+    hints.set(
+      m.nameEn,
+      eggMoveHint(lang, lang === 'en' ? (herb?.nameEn ?? 'Mirror Herb') : (herb?.nameEs ?? 'Hierba Copia'), list)
+    );
+    return true;
+  });
+  return { pool: { ...pool, egg }, hints };
+}
+
 /** What the rules need to know about the audit being made, once it has been worked out what to ask. */
 type RulesContext = {
   pool: LearnableMoves;
@@ -368,7 +448,13 @@ export async function auditBuild(
   const illegal = p.moves.filter((m) => m.legal === false).map((m) => m.move!.nameEn);
 
   // Everything it can legally have in this game, so suggestions come from real options.
-  const pool = await learnableMoves(game, p.finalSpecies?.id ?? p.species.id);
+  const { pool, hints: eggHints } = await reachableEggMoves(
+    game,
+    lang,
+    p,
+    profileId,
+    await learnableMoves(game, p.finalSpecies?.id ?? p.species.id)
+  );
   // Each move with its type, category and power, so advice about which stat it uses comes from data.
   const describeMove = (m: { nameEn: string; type: string; damageClass: string; power: number | null }) =>
     `${m.nameEn} (${m.type}, ${m.damageClass}${m.power ? `, power ${m.power}` : ''})`;
@@ -426,7 +512,10 @@ export async function auditBuild(
         // What the player fixed is kept as it is; the model only filled the rest.
         const parts = {
           heldItem: locks?.heldItem ?? (raw.heldItem && itemNamed ? { ...raw.heldItem, item: itemNamed.nameEn } : raw.heldItem),
-          recommendedMoves: withFixedMoves(locks?.moves, suggestedMoves),
+          recommendedMoves: withFixedMoves(locks?.moves, suggestedMoves).map((m) => {
+            const how = eggHints.get(m.move);
+            return how ? { ...m, how } : m;
+          }),
           ...(hasTera ? { teraType: locks?.teraType ?? raw.teraType } : {}),
           ...(hasMint ? { mint: settledMint(mintLock ?? raw.mint) } : {}),
           ...(raw.nature ? { nature: natureNamed ? { ...raw.nature, nature: natureNamed.nameEn } : raw.nature } : {}),
@@ -524,6 +613,7 @@ export async function auditBuild(
               : '') +
             `recommendedMoves: the best four moves for it given the nature effect it will have${hasEvs ? ' and the EVs it will finish with' : ''}, chosen ONLY from legalMovePool. ` +
             'Prefer moves it already knows over ones it would have to get. ' +
+            'legalMovePool.eggMoves are egg moves it can only get by a picnic or breeding with a Pokémon that already knows them: suggest one only when it clearly beats what it learns normally (the app tells the player how to get it). ' +
             'Do not recommend moves that use a stat it is not investing in: no special attacks when its Sp. Atk gets no EVs and that effect does not raise it, ' +
             'and no physical attacks when its Attack gets none. Status and setup moves are fine. ' +
             'Use the type, category and power given; do not invent move effects. Keep each reason to one short sentence.'

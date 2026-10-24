@@ -33,7 +33,14 @@ export const BuildAuditSchema = z.object({
     .object({ item: z.string(), reason: z.string() })
     .describe('The best held item for it as it is now. If it already holds the best one, name it'),
   recommendedMoves: z
-    .array(z.object({ move: z.string(), reason: z.string() }))
+    .array(
+      z.object({
+        move: z.string(),
+        reason: z.string(),
+        /** How to get an egg move it does not have: written by the app, never by the model. */
+        how: z.string().optional(),
+      })
+    )
     .describe('The best set of up to four moves for it, chosen only from the moves it can learn in this game'),
   mint: z
     .object({
@@ -62,6 +69,9 @@ export type BuildAudit = z.infer<typeof BuildAuditSchema>;
  * Mint or using one is worked out in code from what the Pokémon has.
  */
 export const BuildAuditRawSchema = BuildAuditSchema.omit({ evPlan: true }).extend({
+  recommendedMoves: z
+    .array(z.object({ move: z.string(), reason: z.string() }))
+    .describe('The best set of up to four moves for it, chosen only from the moves it can learn in this game'),
   mint: z
     .object({
       nature: z.string().describe('The nature whose stat effect is best for it, in English (one of the 25 natures)'),
