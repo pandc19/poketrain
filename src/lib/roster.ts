@@ -1,4 +1,5 @@
 import type { AuditLocks } from './audit-locks';
+import { formLabel, isBoxForm } from './form-options';
 import { prisma } from './db';
 import { dexPosition, gameDexes, type GameConfig } from './games';
 import type { EvSpread } from './import/evs';
@@ -37,6 +38,10 @@ export type RosterView = {
     | (Named & { types: string[]; baseStats: EvSpread | null; abilityOptions: (Named & { isHidden: boolean })[] })
     | null;
   formId: number | null;
+  /** The form the player recorded, which is null until they pick one (formId falls back to the default form). */
+  formSet: number | null;
+  /** The forms it can be told apart by, when the species has more than one. */
+  formOptions: { id: number; label: string }[];
   /** The slug of its form when that is not the species' default one (Alolan, Aqua Breed…); null otherwise. */
   formSlug: string | null;
   spriteUrl: string | null;
@@ -120,6 +125,7 @@ export async function loadRoster(
       species: {
         select: {
           ...named,
+          slug: true,
           genderRate: true,
           forms: {
             orderBy: { id: 'asc' },
@@ -201,6 +207,13 @@ export async function loadRoster(
       finalSpecies: finalOf(r.finalSpecies, r.speciesId),
       genderRate: r.species.genderRate,
       formId: form?.id ?? null,
+      formSet: r.formId,
+      formOptions:
+        r.species.forms.filter((f) => isBoxForm(f.slug) || f.id === r.formId).length > 1
+          ? r.species.forms
+              .filter((f) => isBoxForm(f.slug) || f.id === r.formId)
+              .map((f) => ({ id: f.id, label: formLabel(r.species.slug, f.slug) }))
+          : [],
       formSlug: form && !form.isDefault ? form.slug : null,
       spriteUrl: form?.spriteUrl ?? null,
       types: form?.types ?? [],

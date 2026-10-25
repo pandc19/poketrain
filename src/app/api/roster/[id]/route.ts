@@ -10,6 +10,7 @@ import { getGame } from '@/lib/games';
 import { legalPlan } from '@/lib/ev-plan';
 import { parseEvs } from '@/lib/import/evs';
 import { IV_RATING_VALUES, potentialFromRatings, type IvRatings } from '@/lib/iv-ratings';
+import { isBoxForm } from '@/lib/form-options';
 import { variantOfSlug } from '@/lib/dex-variant';
 import { TYPE_SLUGS } from '@/lib/pokemon-types';
 import { loadRoster, refreshLegality } from '@/lib/roster';
@@ -44,6 +45,8 @@ const Body = z.object({
       /** DONE once the Mint has been given. */
       mintStatus: z.enum(['PENDING', 'DONE']),
       abilityId: id,
+      /** Which form of the species it is. */
+      formId: id,
       itemId: id,
       itemNote: z.string().max(200).nullable(),
       evs: z.string().max(200).nullable(),
@@ -160,6 +163,13 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
   }
 
   if (set) {
+    if (set.formId != null) {
+      const form = await prisma.form.findUnique({ where: { id: set.formId }, select: { speciesId: true, slug: true } });
+      // A form of its own species, and not a regional one: the Pokédex keeps those as separate entries.
+      if (!form || form.speciesId !== current.speciesId || !(isBoxForm(form.slug) || set.formId === current.formId)) {
+        return apiError('That is not a form this Pokémon can be', 422);
+      }
+    }
     let currentEvs: ReturnType<typeof parseEvs> | undefined;
     if (set.currentEvs !== undefined) {
       currentEvs = set.currentEvs ? parseEvs(set.currentEvs) : null;
@@ -201,6 +211,7 @@ export async function PATCH(request: Request, ctx: RouteContext<'/api/roster/[id
               : {}),
           breedingOff: set.breedingOff,
           gender: set.gender,
+          formId: set.formId,
           notes: set.notes,
           teraType: set.teraType,
           ...(set.teraType !== undefined && set.teraType !== current.teraType
