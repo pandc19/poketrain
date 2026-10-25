@@ -97,6 +97,22 @@ export function TaskToggle({
   );
 }
 
+/** Which form of the species it is, for the ones that look or breed differently. Nothing shows when it has just one. */
+export function FormControl({ p, onChange, className }: { p: RosterView; onChange: (formId: number | null) => void; className: string }) {
+  const { t } = useT();
+  if (p.formOptions.length < 2) return null;
+  return (
+    <select value={p.formSet ?? 0} onChange={(e) => onChange(Number(e.target.value) || null)} className={className}>
+      <option value={0}>{t('Not recorded')}</option>
+      {p.formOptions.map((f) => (
+        <option key={f.id} value={f.id}>
+          {f.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** ♂ / ♀: a Pokémon is one or the other, so choosing one replaces the other. Fixed for single-gender and genderless species. */
 export function GenderControl({ p, onChange }: { p: RosterView; onChange: (g: Gender) => void }) {
   const { t } = useT();

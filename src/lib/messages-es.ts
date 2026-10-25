@@ -781,6 +781,8 @@ export const ES: Record<string, string> = {
   'Clone: record another one like this, then change its IVs or nature': 'Clonar: registra otro igual y luego cambia sus IVs o su naturaleza',
   'Could not clone that Pokémon. Try again.': 'No se pudo clonar ese Pokémon. Inténtalo de nuevo.',
   'on {name}: 5 IVs are passed on instead of 3': 'en {name}: se heredan 5 IVs en vez de 3',
+  'That is not a form this Pokémon can be': 'Esa no es una forma que pueda tener este Pokémon',
+  'Some evolutions need a particular form, so the breeding plan checks this one.': 'Algunas evoluciones piden una forma concreta, y el plan de cría comprueba esta.',
   'on {name}, so the egg hatches as {form}': 'en {name}, así el huevo sale como {form}',
   'and gets its nature': 'y hereda su naturaleza',
   'The mother needs the Everstone to keep her form, so the egg gets her nature. Fix the effect with a Mint.': 'La madre necesita la Piedra Eterna para mantener su forma, así que el huevo hereda su naturaleza. Arregla el efecto con una Menta.',

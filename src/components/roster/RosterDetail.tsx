@@ -11,7 +11,7 @@ import { ConfirmDialog } from '../Dialog';
 import { PokedexButton } from '../PokemonInfoDialog';
 import { StatsEvsEditor, type EvEstimateInfo } from '../StatsEvs';
 import { TypeBadge } from '../TypeBadge';
-import { ComboInput, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
+import { ComboInput, FormControl, GenderControl, PokemonSprite, PotentialSelect, TaskToggle, progressOf, type Gender } from './parts';
 import { mintInForce } from '@/lib/mint';
 import { auditAsk } from '@/lib/audit-ask';
 import { auditSuggestions } from '@/lib/audit-compare';
@@ -681,6 +681,11 @@ export function RosterDetail({
             <Field label={t('Gender')} hint={t('Used by the breeding planner to know which parents you have.')}>
               <GenderControl p={p} onChange={onGender} />
             </Field>
+            {p.formOptions.length > 1 && (
+              <Field label={t('Form')} hint={t('Some evolutions need a particular form, so the breeding plan checks this one.')}>
+                <FormControl p={p} onChange={(formId) => void save({ formId })} className="w-full rounded-md border border-line bg-bg px-2 py-1.5 text-sm" />
+              </Field>
+            )}
           </Section>
 
           <Section title={t('Build')}>

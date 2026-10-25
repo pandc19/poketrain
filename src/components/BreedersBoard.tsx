@@ -6,7 +6,7 @@ import { SearchInput } from './SearchInput';
 import { TypeBadge } from './TypeBadge';
 import { STAT_LABELS, STAT_ORDER } from './EvInputs';
 import { PokedexButton } from './PokemonInfoDialog';
-import { ComboInput, GenderControl, PokemonSprite, genderMark, PotentialSelect, type Gender } from './roster/parts';
+import { ComboInput, FormControl, GenderControl, PokemonSprite, genderMark, PotentialSelect, type Gender } from './roster/parts';
 import { IV_STATS } from '@/lib/breeding/engine';
 import type { Lang } from '@/lib/i18n';
 import { TYPE_COLORS } from '@/lib/pokemon-types';
@@ -725,6 +725,11 @@ function BreederDetail({
           <Field label={t('Gender')}>
             <GenderControl p={p} onChange={onGender} />
           </Field>
+          {p.formOptions.length > 1 && (
+            <Field label={t('Form')} hint={t('Some evolutions need a particular form, so the breeding plan checks this one.')}>
+              <FormControl p={p} onChange={(formId) => void onSave({ formId })} className={inputClass} />
+            </Field>
+          )}
           <Field label={t('Nature it has')} hint={t('Needed to pick the parent that holds the Everstone.')}>
             <select
               value={p.currentNature?.id ?? 0}
