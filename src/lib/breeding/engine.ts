@@ -17,6 +17,25 @@
  * that can only be one gender is known without recording it.
  */
 
+import type { Localized } from '../translate';
+
+/**
+ * An evolution only one form of the base species can make (White-Striped Basculin into Basculegion), so a
+ * parent of any other form hatches eggs that can never evolve into the target. Rules live in the game's
+ * config (src/lib/games/breeding-forms.ts); `formId` is looked up from the form's slug when the data loads.
+ */
+export type FormLock = {
+  /** The evolved species the plan is for. */
+  targetId: number;
+  /** The species that hatches. */
+  baseId: number;
+  formId: number;
+  /** The form as the player reads it: "White-Striped Basculin". */
+  name: Localized;
+  /** Held by the parent for the egg to keep the form. */
+  item: { name: Localized; slug: string } | null;
+};
+
 export type SpeciesInfo = {
   id: number;
   nameEn: string;
@@ -36,6 +55,7 @@ export type BreedingData = {
   /** speciesId -> moveId -> how that exact species learns it in this game. */
   learns: Map<number, Map<number, LearnWay[]>>;
   mirrorHerb: boolean;
+  formLocks: FormLock[];
 };
 
 export type Gender = 'MALE' | 'FEMALE' | 'BOTH' | 'GENDERLESS' | 'UNKNOWN';
@@ -57,6 +77,8 @@ export type OwnedPokemon = {
   label?: string | null;
   /** The Judge's word for each IV; stats left out are not judged. */
   ivs?: Partial<Record<IvStat, IvKnowledge>>;
+  /** The form it is, when recorded. */
+  formId?: number | null;
   /** The nature it has now. */
   natureId?: number | null;
   /** True when its ability is the species' hidden one; null when not known. */
@@ -121,6 +143,8 @@ export type ParentPlan = {
   reason?: 'no-eggs' | 'unknown-species';
   /** Needs Ditto: genderless, or a male-only line. */
   needsDitto: boolean;
+  /** Only this form of the family hatches eggs that can evolve into the target. */
+  formLock?: { name: Localized; item: FormLock['item'] };
   haveMother: boolean;
   haveDitto: boolean;
   steps: Step[];
@@ -160,6 +184,22 @@ export function lineage(data: BreedingData, speciesId: number): SpeciesInfo[] {
     cur = cur.evolvesFromId != null ? data.species.get(cur.evolvesFromId) : undefined;
   }
   return chain;
+}
+
+/** The rule that limits which parents can hatch an egg that evolves into this species, if there is one. */
+export function formLockFor(data: BreedingData, speciesId: number): FormLock | null {
+  const line = lineage(data, speciesId).map((s) => s.id);
+  return data.formLocks.find((l) => line.includes(l.targetId)) ?? null;
+}
+
+/**
+ * Whether a Pokémon of the family is the form the lock needs: yes, no, or not known (a Pokédex entry or a roster
+ * Pokémon with no form recorded). An evolved Pokémon already is the form.
+ */
+export function formOf(lock: FormLock, p: OwnedPokemon): 'yes' | 'no' | 'unknown' {
+  if (p.speciesId !== lock.baseId) return 'yes';
+  if (p.formId == null) return 'unknown';
+  return p.formId === lock.formId ? 'yes' : 'no';
 }
 
 export const baseOf = (data: BreedingData, speciesId: number) => lineage(data, speciesId).at(-1);
@@ -241,17 +281,20 @@ function standing(
   owned: Owned,
   data: BreedingData,
   speciesId: number,
-  want: { move?: number; gender?: 'male' | 'female' } = {}
+  want: { move?: number; gender?: 'male' | 'female'; lock?: FormLock | null } = {}
 ): { have: Have; wrongGender: boolean } {
   const family = new Set(familyIds(data, speciesId));
-  const inFamily = owned.roster.filter((p) => family.has(p.speciesId));
+  const form = (p: OwnedPokemon) => (want.lock ? formOf(want.lock, p) : 'yes');
+  const ofFamily = owned.roster.filter((p) => family.has(p.speciesId));
+  // A Pokémon of the wrong form is no parent for this plan.
+  const inFamily = ofFamily.filter((p) => form(p) !== 'no');
   const hasMove = (p: OwnedPokemon) => want.move == null || p.moveIds.includes(want.move);
   const known = (p: OwnedPokemon) => !want.gender || isGender(effectiveGender(data, p), want.gender);
   const unknown = (p: OwnedPokemon) => effectiveGender(data, p) === 'UNKNOWN';
 
-  if (inFamily.some((p) => known(p) && hasMove(p))) return { have: 'ready', wrongGender: false };
+  if (inFamily.some((p) => known(p) && hasMove(p) && form(p) === 'yes')) return { have: 'ready', wrongGender: false };
   if (inFamily.some((p) => known(p) || unknown(p))) return { have: 'caught', wrongGender: false };
-  if (inFamily.length === 0 && [...family].some((id) => owned.caughtSpeciesIds.has(id))) {
+  if (ofFamily.length === 0 && [...family].some((id) => owned.caughtSpeciesIds.has(id))) {
     return { have: 'caught', wrongGender: false };
   }
   return { have: 'missing', wrongGender: inFamily.length > 0 };
@@ -412,17 +455,18 @@ function planParents(data: BreedingData, owned: Owned, target: SpeciesInfo): Par
     return { hatchesAs: ref(hatches), canBreed: false, reason: 'no-eggs', needsDitto: false, haveMother: false, haveDitto, steps: [] };
   }
   const needsDitto = !canBeFemale(breeder);
+  const lock = formLockFor(data, target.id);
 
   const steps: Step[] = [];
   let haveMother: boolean;
   if (needsDitto) {
     // Any one of this line will do; Ditto supplies the other half.
-    const mine = standing(owned, data, breeder.id);
+    const mine = standing(owned, data, breeder.id, { lock });
     haveMother = mine.have !== 'missing';
     steps.push({ action: 'obtain', species: ref(breeder), have: haveMother ? 'ready' : 'missing', role: 'mother' });
     if (ditto) steps.push({ action: 'obtain', species: ref(ditto), have: haveDitto ? 'ready' : 'missing', role: 'ditto' });
   } else {
-    const mother = standing(owned, data, breeder.id, { gender: 'female' });
+    const mother = standing(owned, data, breeder.id, { gender: 'female', lock });
     haveMother = mother.have === 'ready';
     steps.push({
       action: 'obtain',
@@ -433,7 +477,15 @@ function planParents(data: BreedingData, owned: Owned, target: SpeciesInfo): Par
       wrongGender: mother.wrongGender,
     });
   }
-  return { hatchesAs: ref(hatches), canBreed: true, needsDitto, haveMother, haveDitto, steps };
+  return {
+    hatchesAs: ref(hatches),
+    canBreed: true,
+    needsDitto,
+    formLock: lock ? { name: lock.name, item: lock.item } : undefined,
+    haveMother,
+    haveDitto,
+    steps,
+  };
 }
 
 /** Collapses the steps of the best option for each move into one de-duplicated list. */

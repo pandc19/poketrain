@@ -618,7 +618,16 @@ export function BreedingBoard({
         )}
         {ivs.natureOk === false && (
           <p className="mt-1 text-xs text-pending">
-            {t('Neither parent has the nature you want. Breed without an Everstone and fix the effect with a Mint.')}
+            {ivs.items.everstoneForForm
+              ? t('The mother needs the Everstone to keep her form, so the egg gets her nature. Fix the effect with a Mint.')
+              : t('Neither parent has the nature you want. Breed without an Everstone and fix the effect with a Mint.')}
+          </p>
+        )}
+        {ivs.formOk === false && goal.plan?.parents.formLock && (
+          <p className="mt-1 text-xs text-pending">
+            {t('The mother is not recorded as {form}. Set her form on the roster, or use one that is.', {
+              form: goal.plan.parents.formLock.name[lang],
+            })}
           </p>
         )}
         {ivs.hiddenOk === false && (
@@ -654,7 +663,14 @@ export function BreedingBoard({
           })}`
         );
       }
-      if (ivs.items.everstone) {
+      if (ivs.items.everstoneForForm && plan.parents.formLock) {
+        lines.push(
+          `${EVERSTONE.name[lang]} ${t('on {name}, so the egg hatches as {form}', {
+            name: who('base'),
+            form: plan.parents.formLock.name[lang],
+          })}${ivs.items.everstone === 'base' && ivs.natureOk ? ` ${t('and gets its nature')}` : ''}`
+        );
+      } else if (ivs.items.everstone) {
         lines.push(
           `${EVERSTONE.name[lang]} ${t('on {name}, so the egg gets its nature', { name: who(ivs.items.everstone) })}`
         );
@@ -893,6 +909,11 @@ export function BreedingBoard({
             <p className="mt-3 text-xs text-muted">
               {t('The egg hatches as')} <span className="text-ink">{name(plan.parents.hatchesAs)}</span>
               {plan.parents.needsDitto ? `. ${t('This Pokémon can only breed with Ditto.')}` : '.'}{' '}
+              {plan.parents.formLock &&
+                `${t('Only a {form} hatches eggs that can evolve into {name}.', {
+                  form: plan.parents.formLock.name[lang],
+                  name: name(plan.target),
+                })}${plan.parents.formLock.item ? ` ${t('It must hold an {item}.', { item: plan.parents.formLock.item.name[lang] })}` : ''} `}
               {t('This list updates itself from what you record in your Pokédex, roster and breeders.')}
             </p>
           </>

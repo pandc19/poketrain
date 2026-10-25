@@ -86,7 +86,6 @@ export function Header({ games, user, canAddGames }: { games: GameLink[]; user: 
   const tabs: { href: string; label: string; also?: string; right?: boolean }[] = [
     { href: `/${current.id}/pokedex`, label: t('Pokédex') },
     { href: `/${current.id}/roster`, label: t('Roster') },
-    { href: `/${current.id}/battle`, label: t('Battle') },
     ...(current.breeding
       ? [
           {
@@ -96,6 +95,7 @@ export function Header({ games, user, canAddGames }: { games: GameLink[]; user: 
           },
         ]
       : []),
+    { href: `/${current.id}/battle`, label: t('Battle') },
     ...(current.exclusives ? [{ href: `/${current.id}/exclusives`, label: t('Exclusives'), right: true }] : []),
     { href: `/${current.id}/search`, label: t('Search'), right: true },
   ];
