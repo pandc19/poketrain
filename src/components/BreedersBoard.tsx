@@ -19,6 +19,7 @@ type Named = { id: number; nameEn: string; nameEs: string };
 
 const inputClass = 'w-full rounded-md border border-line bg-bg px-2 py-1.5 text-sm';
 const PAGE = 12;
+const SWIPE_MIN = 50;
 
 const perfectCount = (p: RosterView) => IV_STATS.filter((s) => p.ivRatings?.[s] === 'PERFECT').length;
 const judgedCount = (p: RosterView) => IV_STATS.filter((s) => p.ivRatings?.[s]).length;
@@ -66,6 +67,8 @@ export function BreedersBoard({
   }, [selectedId, storageKey, initial, initialSelectedId]);
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const swiped = useRef(false);
   const [adding, setAdding] = useState('');
   const [fromRoster, setFromRoster] = useState('');
   const [rosterChoices, setRosterChoices] = useState<RosterView[] | null>(null);
@@ -276,68 +279,130 @@ export function BreedersBoard({
               label={t('Search the breeders')}
               className="mb-3"
             />
-            {shown.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
-            ) : (
-              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {shown.map((p) => {
-                  const active = p.id === selectedId;
-                  const perfect = perfectCount(p);
-                  return (
-                    <li key={p.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(p.id)}
-                        aria-current={active ? 'true' : undefined}
-                        className={`flex h-full w-full flex-col items-center rounded-lg border border-line px-1.5 pb-2 pt-1.5 text-center ${
-                          active ? 'bg-surface-2' : 'bg-surface hover:bg-surface-2'
-                        } ${p.breedingOff ? 'opacity-50' : ''}`}
-                        style={active ? { outline: `2px solid ${accent}`, outlineOffset: 1 } : undefined}
-                      >
-                        <PokemonSprite p={p} size={56} animated={false} />
-                        <span className="mt-0.5 flex w-full items-center justify-center gap-1 text-xs font-medium">
-                          <span className="truncate">{p.nickname ?? name(p.species)}</span>
-                          {genderMark(p) && (
-                            <span className={`shrink-0 font-bold ${genderMark(p)!.color}`} title={genderMark(p)!.label[lang]}>
-                              {genderMark(p)!.symbol}
-                            </span>
-                          )}
-                        </span>
-                        {p.currentNature && <span className="mt-0.5 text-[10px] text-muted">{name(p.currentNature)}</span>}
-                        <span className={`mt-1 text-[10px] ${perfect >= 5 ? 'text-star' : perfect > 0 ? 'text-done' : 'text-muted'}`}>
-                          {judgedCount(p) === 0 ? t('IVs not recorded') : `${perfect}/6 ${t('perfect')}`}
-                        </span>
-                        {/* The line is always there so every card has the same height. */}
-                        <span className="h-3.5 text-[10px] leading-3.5 text-muted">
-                          {p.breedingOff ? t('left out of the plans') : p.roles.includes('ROSTER') ? t('also on the roster') : ''}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {pageCount > 1 && (
-              <nav className="mt-3 flex items-center justify-between text-xs" aria-label={t('Pages')}>
-                <button
-                  type="button"
-                  onClick={() => setPage(currentPage - 1)}
-                  disabled={currentPage === 0}
-                  className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
-                >
-                  ← {t('Previous')}
-                </button>
-                <span className="text-muted">{t('Page {page} of {pages}', { page: currentPage + 1, pages: pageCount })}</span>
-                <button
-                  type="button"
-                  onClick={() => setPage(currentPage + 1)}
-                  disabled={currentPage >= pageCount - 1}
-                  className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
-                >
-                  {t('Next')} →
-                </button>
-              </nav>
-            )}
+            {/* A swipe sideways turns the page. Touch events, since pointer events are cancelled once the browser scrolls. */}
+            <div
+              style={{ touchAction: 'pan-y' }}
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                swipe.current = e.touches.length === 1 && touch ? { x: touch.clientX, y: touch.clientY } : null;
+              }}
+              onTouchEnd={(e) => {
+                const from = swipe.current;
+                swipe.current = null;
+                const touch = e.changedTouches[0];
+                if (!from || !touch) return;
+                const dx = touch.clientX - from.x;
+                const dy = touch.clientY - from.y;
+                if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+                // The click that ends a swipe on a card must not choose that card.
+                swiped.current = true;
+                setTimeout(() => (swiped.current = false), 400);
+                const next = currentPage + (dx < 0 ? 1 : -1);
+                if (next >= 0 && next < pageCount) setPage(next);
+              }}
+              onTouchCancel={() => {
+                swipe.current = null;
+              }}
+              onClickCapture={(e) => {
+                if (swiped.current) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }
+              }}
+            >
+              {shown.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted">{t('No Pokémon match this filter.')}</p>
+              ) : (
+                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {shown.map((p) => {
+                    const active = p.id === selectedId;
+                    const perfect = perfectCount(p);
+                    return (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(p.id)}
+                          aria-current={active ? 'true' : undefined}
+                          className={`flex h-full w-full flex-col items-center rounded-lg border border-line px-1.5 pb-2 pt-1.5 text-center ${
+                            active ? 'bg-surface-2' : 'bg-surface hover:bg-surface-2'
+                          } ${p.breedingOff ? 'opacity-50' : ''}`}
+                          style={active ? { outline: `2px solid ${accent}`, outlineOffset: 1 } : undefined}
+                        >
+                          <PokemonSprite p={p} size={56} animated={false} />
+                          <span className="mt-0.5 flex w-full items-center justify-center gap-1 text-xs font-medium">
+                            <span className="truncate">{p.nickname ?? name(p.species)}</span>
+                            {genderMark(p) && (
+                              <span className={`shrink-0 font-bold ${genderMark(p)!.color}`} title={genderMark(p)!.label[lang]}>
+                                {genderMark(p)!.symbol}
+                              </span>
+                            )}
+                          </span>
+                          {p.currentNature && <span className="mt-0.5 text-[10px] text-muted">{name(p.currentNature)}</span>}
+                          <span className={`mt-1 text-[10px] ${perfect >= 5 ? 'text-star' : perfect > 0 ? 'text-done' : 'text-muted'}`}>
+                            {judgedCount(p) === 0 ? t('IVs not recorded') : `${perfect}/6 ${t('perfect')}`}
+                          </span>
+                          {/* The line is always there so every card has the same height. */}
+                          <span className="h-3.5 text-[10px] leading-3.5 text-muted">
+                            {p.breedingOff ? t('left out of the plans') : p.roles.includes('ROSTER') ? t('also on the roster') : ''}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {pageCount > 1 && (
+                <nav className="mt-3 flex flex-wrap items-center justify-between gap-1.5 text-xs" aria-label={t('Pages')}>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPage(0)}
+                      disabled={currentPage === 0}
+                      aria-label={t('First page')}
+                      title={t('First page')}
+                      className="rounded-md border border-line px-2.5 py-1.5 disabled:opacity-40"
+                    >
+                      «
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPage(currentPage - 1)}
+                      disabled={currentPage === 0}
+                      aria-label={t('Previous')}
+                      title={t('Previous')}
+                      className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
+                    >
+                      ‹
+                    </button>
+                  </div>
+                  <span className="text-muted">
+                    {t('Page {page} of {pages}', { page: currentPage + 1, pages: pageCount })} · {visible.length}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPage(currentPage + 1)}
+                      disabled={currentPage >= pageCount - 1}
+                      aria-label={t('Next')}
+                      title={t('Next')}
+                      className="rounded-md border border-line px-3 py-1.5 disabled:opacity-40"
+                    >
+                      ›
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPage(pageCount - 1)}
+                      disabled={currentPage >= pageCount - 1}
+                      aria-label={t('Last page')}
+                      title={t('Last page')}
+                      className="rounded-md border border-line px-2.5 py-1.5 disabled:opacity-40"
+                    >
+                      »
+                    </button>
+                  </div>
+                </nav>
+              )}
+            </div>
           </aside>
 
           <div className="min-w-0">
