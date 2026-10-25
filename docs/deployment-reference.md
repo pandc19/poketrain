@@ -47,7 +47,7 @@ The image declares a `HEALTHCHECK` that calls `/api/health` with `node` (the sli
 | Port | 3000 |
 | Domain | `https://poketrain.apps.<domain>` |
 | Auto deploy | on (push to `main`; gated by the GitHub ruleset, see [deployment.md](deployment.md)) |
-| Health check | from the image (`HEALTHCHECK` in the Dockerfile); leave Coolify's own health check off unless it is changed to match |
+| Health check | from the image (`HEALTHCHECK` in the Dockerfile); keep Coolify's own health check **off**: it needs curl or wget, which the image does not have |
 | Server | `shared-apps-1` |
 
 ### Environment variables
