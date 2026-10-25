@@ -8,6 +8,15 @@ export const SPANISH_FIXES: { slug: string; nameEn: string; nameEs: string }[] =
   { slug: 'truant', nameEn: 'Truant', nameEs: 'Pereza' },
 ];
 
+/**
+ * Latin American Spanish names PokéAPI's es-419 has differently from the games (they read like older or anime
+ * names), by English name. Applied over the name_variants table when names are synced and read, like the fixes above.
+ */
+export const LATIN_AMERICAN_FIXES: { nameEn: string; nameEs419: string }[] = [
+  // The game says the same as Spain here.
+  { nameEn: 'Close Combat', nameEs419: 'A Bocajarro' },
+];
+
 export const SPANISH_FIX_BY_SLUG = new Map(SPANISH_FIXES.map((f) => [f.slug, f.nameEs]));
 const BY_ENGLISH = new Map(SPANISH_FIXES.map((f) => [f.nameEn, f.nameEs]));
 

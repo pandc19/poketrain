@@ -12,7 +12,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from '../src/lib/db';
 import { GAMES, NATIONAL_DEX_SLUG } from '../src/lib/games';
-import { SPANISH_FIX_BY_SLUG } from '../src/lib/spanish-fixes';
+import { LATIN_AMERICAN_FIXES, SPANISH_FIX_BY_SLUG } from '../src/lib/spanish-fixes';
 
 const API = 'https://pokeapi.co/api/v2';
 const CACHE_DIR = path.join(process.cwd(), '.cache', 'pokeapi');
@@ -89,7 +89,8 @@ function nameVariants(...lists: Json[][]): { nameEn: string; nameEs419: string }
     const en = nameIn(d.names, 'en');
     const latin = nameIn(d.names, 'es-419');
     if (!en || !latin || out.has(en)) continue;
-    if (latin !== names(d).nameEs) out.set(en, latin);
+    const name = LATIN_AMERICAN_FIXES.find((f) => f.nameEn === en)?.nameEs419 ?? latin;
+    if (name !== names(d).nameEs) out.set(en, name);
   }
   return [...out].map(([nameEn, nameEs419]) => ({ nameEn, nameEs419 }));
 }
