@@ -31,6 +31,9 @@ import {
   canBreedAtAll,
   effectiveGender,
   familyIds,
+  formLockFor,
+  formOf,
+  type FormLock,
   ref,
   shareGroup,
 } from './engine';
@@ -69,6 +72,8 @@ export type IvPlan = {
     powerItem: IvStat | null;
     powerHolder: 'base' | 'partner' | null;
     everstone: 'base' | 'partner' | null;
+    /** The Everstone is also there for the form: the egg stays the form the evolution needs (see FormLock). */
+    everstoneForForm: boolean;
   };
   /** Chance that every targeted IV is 31, and how many targeted IVs to expect, with that setup. */
   chance: { all: number; expected: number };
@@ -76,6 +81,8 @@ export type IvPlan = {
   gaps: IvStat[];
   natureOk: boolean | null;
   hiddenOk: boolean | null;
+  /** The mother is the form the evolution needs; null when the target has no such rule, false when it is not recorded. */
+  formOk: boolean | null;
   /** The pair's IVs are not recorded (Pokédex entries only), so the chance is a floor. */
   unrecorded: boolean;
   /** No pair could be made from what you have. */
@@ -148,13 +155,14 @@ type Scored = {
   everstone: 'base' | 'partner' | null;
   natureOk: boolean | null;
   hiddenOk: boolean | null;
+  formOk: boolean | null;
   unrecorded: boolean;
 };
 
 const perfectOf = (p: OwnedPokemon) => IV_STATS.filter((s) => p.ivs?.[s] === 'perfect');
 const SOURCE_RANK = { breeder: 0, roster: 1, pokedex: 2 } as const;
 
-function score(base: OwnedPokemon, partner: OwnedPokemon, goal: IvGoal): Scored {
+function score(base: OwnedPokemon, partner: OwnedPokemon, goal: IvGoal, lock: FormLock | null): Scored {
   const a = perfectOf(base);
   const b = perfectOf(partner);
   const targets = goal.ivTargets;
@@ -165,6 +173,12 @@ function score(base: OwnedPokemon, partner: OwnedPokemon, goal: IvGoal): Scored 
     // Ditto's nature is passed on like any other parent's.
     everstone = base.natureId === goal.natureId ? 'base' : partner.natureId === goal.natureId ? 'partner' : null;
     natureOk = everstone != null;
+  }
+  // The mother's Everstone keeps the form; it takes the nature too, so the nature only comes if she has it.
+  const baseForm = lock && lock.item && base.speciesId === lock.baseId ? formOf(lock, base) : null;
+  if (baseForm) {
+    everstone = 'base';
+    if (goal.natureId != null) natureOk = base.natureId === goal.natureId;
   }
 
   // The best Power item: the one that gives the highest chance of every target. Only when the
@@ -184,14 +198,16 @@ function score(base: OwnedPokemon, partner: OwnedPokemon, goal: IvGoal): Scored 
   }
 
   const hiddenOk = goal.hiddenAbility ? base.hiddenAbility === true : null;
+  const formOk = lock ? formOf(lock, base) === 'yes' : null;
   const unrecorded = base.source === 'pokedex' || partner.source === 'pokedex';
-  return { base, partner, power, odds, everstone, natureOk, hiddenOk, unrecorded };
+  return { base, partner, power, odds, everstone, natureOk, hiddenOk, formOk, unrecorded };
 }
 
 const better = (x: Scored, y: Scored) => {
   const eps = 1e-12;
   // A wanted nature comes first: the Everstone takes the second item slot, so a pair that has it
   // would otherwise lose to one that only wins by using a Power item.
+  if ((x.formOk === true) !== (y.formOk === true)) return x.formOk === true;
   if ((x.natureOk === true) !== (y.natureOk === true)) return x.natureOk === true;
   if (Math.abs(x.odds.all - y.odds.all) > eps) return x.odds.all > y.odds.all;
   if (Math.abs(x.odds.expected - y.odds.expected) > eps) return x.odds.expected > y.odds.expected;
@@ -206,11 +222,12 @@ const empty = (goal: IvGoal, reason: IvPlan['reason']): IvPlan => ({
   wantsHiddenAbility: goal.hiddenAbility,
   base: null,
   partner: null,
-  items: { destinyKnot: true, knotHolder: 'either', powerItem: null, powerHolder: null, everstone: null },
+  items: { destinyKnot: true, knotHolder: 'either', powerItem: null, powerHolder: null, everstone: null, everstoneForForm: false },
   chance: { all: 0, expected: 0 },
   gaps: goal.ivTargets,
   natureOk: null,
   hiddenOk: null,
+  formOk: null,
   unrecorded: false,
   reason,
 });
@@ -227,10 +244,13 @@ export function planIvs(data: BreedingData, owned: Owned, targetId: number, goal
   const needsDitto = !canBeFemale(breeder);
 
   const family = new Set(familyIds(data, target.id));
+  const lock = formLockFor(data, target.id);
   const isDitto = (p: OwnedPokemon) => p.speciesId === DITTO_ID;
 
   const bases = owned.roster.filter((p) => {
     if (!family.has(p.speciesId) || isDitto(p)) return false;
+    // The mother hatches the egg, so a wrong form would hatch one that cannot evolve.
+    if (lock && formOf(lock, p) === 'no') return false;
     if (needsDitto) return true;
     const g = effectiveGender(data, p);
     return g === 'FEMALE' || g === 'BOTH';
@@ -253,7 +273,7 @@ export function planIvs(data: BreedingData, owned: Owned, targetId: number, goal
   let best: Scored | null = null;
   for (const base of bases) {
     for (const partner of partnersFor(base)) {
-      const scored = score(base, partner, goal);
+      const scored = score(base, partner, goal, lock);
       if (!best || better(scored, best)) best = scored;
     }
   }
@@ -276,11 +296,13 @@ export function planIvs(data: BreedingData, owned: Owned, targetId: number, goal
       powerItem: best.power?.stat ?? null,
       powerHolder: best.power?.holder ?? null,
       everstone: best.everstone,
+      everstoneForForm: lock?.item != null && best.base.speciesId === lock.baseId,
     },
     chance: best.odds,
     gaps: goal.ivTargets.filter((s) => !have.has(s)),
     natureOk: best.natureOk,
     hiddenOk: best.hiddenOk,
+    formOk: best.formOk,
     unrecorded: best.unrecorded,
   };
 }

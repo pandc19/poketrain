@@ -1,5 +1,6 @@
 import type { Lang, Localized } from '../translate';
 import { type CatalogSection, SCARLET_VIOLET_BREEDING_CATALOG, SCARLET_VIOLET_CATALOG } from './catalog';
+import { type BreedingFormRule, SCARLET_VIOLET_BREEDING_FORMS } from './breeding-forms';
 import { scarletVioletExclusives, type VersionExclusives } from './exclusives';
 
 export type { VersionExclusives } from './exclusives';
@@ -50,6 +51,8 @@ export type GameConfig = {
   };
   /** The game has a National Dex. Scarlet/Violet do not: only their regional Pokédexes. */
   nationalDex: boolean;
+  /** Evolutions only one form of the base species can make: the breeding plan only counts parents of that form. */
+  breedingForms: BreedingFormRule[];
   features: {
     breeding: boolean;
     /** EV training exists. When false the app hides EVs and the AI gives no EV advice. */
@@ -129,6 +132,7 @@ function scarletViolet(version: 'scarlet' | 'violet', theme: GameConfig['theme']
       },
     ],
     nationalDex: false,
+    breedingForms: SCARLET_VIOLET_BREEDING_FORMS,
     extraForms: {
       // Wyrdeer and Sneasler evolve from Stantler and Hisuian Sneasel.
       hisuiSpecies: [899, 903],

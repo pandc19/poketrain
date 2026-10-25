@@ -43,6 +43,7 @@ const learns = (rows: [number, number, LearnWay][]) => {
 const world = (mirrorHerb: boolean): BreedingData => ({
   species: new Map(species.map((s) => [s.id, s])),
   mirrorHerb,
+  formLocks: [],
   learns: learns([
     [1, 1, { method: 'egg', level: 0 }],
     [1, 2, { method: 'level-up', level: 15 }],
@@ -210,5 +211,39 @@ describe('shopping list', () => {
     };
     const plan = planBreeding(world(false), owned, 1, [1])!;
     expect(plan.shopping.every((s) => s.have === 'ready')).toBe(true);
+  });
+});
+
+describe('form-locked evolutions', () => {
+  // 20 hatches as 20 in any form; only form 201 evolves into 21 (like White-Striped Basculin into Basculegion).
+  const lock = { targetId: 21, baseId: 20, formId: 201, name: { en: 'Striped', es: 'Rayado' }, item: null };
+  const locked: BreedingData = {
+    species: new Map([sp(20, 'Fish', ['water2']), sp(21, 'FishEvo', ['water2'], { evolvesFromId: 20 })].map((s) => [s.id, s])),
+    mirrorHerb: false,
+    formLocks: [lock],
+    learns: new Map(),
+  };
+  const have = (speciesId: number, formId: number | null): Owned => ({
+    roster: [{ speciesId, formId, gender: 'FEMALE', moveIds: [] }],
+    caughtSpeciesIds: new Set([speciesId]),
+  });
+  const motherHave = (owned: Owned, data = locked) => planBreeding(data, owned, 21, [])!.parents.steps[0];
+
+  it('counts the right form as a ready mother', () => {
+    expect(motherHave(have(20, 201))).toMatchObject({ have: 'ready' });
+  });
+  it('does not count another form', () => {
+    expect(motherHave(have(20, 200))).toMatchObject({ have: 'missing' });
+  });
+  it('asks to check the form when it is not recorded', () => {
+    expect(motherHave(have(20, null))).toMatchObject({ have: 'caught' });
+  });
+  it('counts an evolved Pokémon whatever its recorded form', () => {
+    expect(motherHave(have(21, null))).toMatchObject({ have: 'ready' });
+  });
+  it('is ignored for a game with no such rule, and for the base species', () => {
+    expect(motherHave(have(20, 200), { ...locked, formLocks: [] })).toMatchObject({ have: 'ready' });
+    expect(planBreeding(locked, have(20, 200), 20, [])!.parents.steps[0]).toMatchObject({ have: 'ready' });
+    expect(planBreeding(locked, have(20, 200), 20, [])!.parents.formLock).toBeUndefined();
   });
 });

@@ -1,10 +1,18 @@
 import { prisma } from '../db';
 import { getUserId } from '../current-user';
 import { gameDexes, type GameConfig } from '../games';
-import { IV_STATS, type BreedingData, type IvKnowledge, type LearnWay, type Owned, type OwnedPokemon } from './engine';
+import { IV_STATS, type BreedingData, type FormLock, type IvKnowledge, type LearnWay, type Owned, type OwnedPokemon } from './engine';
 
 /** Loads what the engine needs for a set of moves in one game. */
 export async function loadBreedingData(game: GameConfig, moveIds: number[]): Promise<BreedingData> {
+  const lockForms = await prisma.form.findMany({
+    where: { slug: { in: game.breedingForms.map((r) => r.formSlug) } },
+    select: { id: true, slug: true },
+  });
+  const formLocks: FormLock[] = game.breedingForms.flatMap((r) => {
+    const form = lockForms.find((f) => f.slug === r.formSlug);
+    return form ? [{ targetId: r.targetId, baseId: r.baseId, formId: form.id, name: r.name, item: r.item }] : [];
+  });
   const [species, slots, learnsets] = await Promise.all([
     prisma.species.findMany({
       select: { id: true, nameEn: true, nameEs: true, eggGroups: true, genderRate: true, evolvesFromId: true },
@@ -31,6 +39,7 @@ export async function loadBreedingData(game: GameConfig, moveIds: number[]): Pro
     species: new Map(species.map((s) => [s.id, { ...s, available: available.has(s.id) }])),
     learns,
     mirrorHerb: game.features.mirrorHerb,
+    formLocks,
   };
 }
 
@@ -48,6 +57,7 @@ export async function loadOwned(profileId: string): Promise<Owned> {
       select: {
         id: true,
         speciesId: true,
+        formId: true,
         gender: true,
         nickname: true,
         ivRatings: true,
@@ -89,6 +99,7 @@ export async function loadOwned(profileId: string): Promise<Owned> {
       id: p.id,
       label: p.nickname,
       speciesId: p.speciesId,
+      formId: p.formId,
       gender: p.gender,
       moveIds: p.moves.map((m) => m.moveId!),
       source: p.roles.some((r) => r.role === 'BREEDER') ? ('breeder' as const) : ('roster' as const),

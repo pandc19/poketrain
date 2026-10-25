@@ -25,6 +25,7 @@ const data: BreedingData = {
   ),
   learns: new Map(),
   mirrorHerb: false,
+  formLocks: [],
 };
 
 const ALL: IvStat[] = ['hp', 'attack', 'defense', 'specialAttack', 'specialDefense', 'speed'];
@@ -169,5 +170,43 @@ describe('planIvs', () => {
       mon('f', 2, 'MALE', [], { hiddenAbility: true })
     );
     expect(planIvs(data, owned, 1, goal([], { hiddenAbility: true }))!.hiddenOk).toBe(false);
+  });
+});
+
+describe('planIvs with a form-locked evolution', () => {
+  const lock = {
+    targetId: 21,
+    baseId: 20,
+    formId: 201,
+    name: { en: 'Striped', es: 'Rayado' },
+    item: { name: { en: 'Everstone', es: 'Piedra Eterna' }, slug: 'everstone' },
+  };
+  const fish: BreedingData = {
+    species: new Map(
+      [sp(20, 'Fish', ['water2']), sp(21, 'FishEvo', ['water2'], { evolvesFromId: 20 }), sp(DITTO_ID, 'Ditto', ['ditto'], { genderRate: -1 })].map((s) => [s.id, s])
+    ),
+    learns: new Map(),
+    mirrorHerb: false,
+    formLocks: [lock],
+  };
+  const ditto = mon('d', DITTO_ID, 'GENDERLESS', ['hp']);
+  const plan = (...roster: OwnedPokemon[]) => planIvs(fish, owning(...roster), 21, goal(['hp'], { natureId: 5 }))!;
+
+  it('leaves out a mother of another form', () => {
+    expect(plan(mon('a', 20, 'FEMALE', ALL, { formId: 200 }), ditto).reason).toBe('no-base');
+  });
+  it('prefers a mother known to be the form, and keeps the Everstone on her', () => {
+    const out = plan(mon('a', 20, 'FEMALE', [], { formId: null }), mon('b', 20, 'FEMALE', [], { formId: 201 }), ditto);
+    expect(out.base?.id).toBe('b');
+    expect(out.formOk).toBe(true);
+    expect(out.items).toMatchObject({ everstone: 'base', everstoneForForm: true });
+  });
+  it('keeps the Everstone for the form even when she lacks the nature', () => {
+    const out = plan(mon('b', 20, 'FEMALE', [], { formId: 201, natureId: 9 }), ditto);
+    expect(out.natureOk).toBe(false);
+    expect(out.items.everstone).toBe('base');
+  });
+  it('passes her nature on when it is the one wanted', () => {
+    expect(plan(mon('b', 20, 'FEMALE', [], { formId: 201, natureId: 5 }), ditto).natureOk).toBe(true);
   });
 });
