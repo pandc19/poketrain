@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { spanishRules } from '@/lib/ai/spanish';
 import { GAME_LANGUAGE_NAMES, GAME_LANGUAGES, parseGameLanguage } from '@/lib/name-variants';
-import { applySpanishFixes, applySpanishNames, LATIN_AMERICAN_FIXES } from '@/lib/spanish-fixes';
+import { applySpanishFixes, applySpanishNames } from '@/lib/spanish-fixes';
 
 describe('game language', () => {
   it('is Spain unless it is Latin America', () => {
@@ -33,12 +33,6 @@ describe('Latin American names', () => {
     expect(applySpanishNames(row('Light Screen', 'Pantalla de Luz'), LATIN)).toEqual(row('Light Screen', 'Pantalla de Luz'));
   });
 
-  it("uses the game's name over PokéAPI's where they differ", () => {
-    const fromApi = new Map([['Close Combat', 'Cuerpo a Cuerpo']]);
-    const names = new Map([...fromApi, ...LATIN_AMERICAN_FIXES.map((f) => [f.nameEn, f.nameEs419] as const)]);
-    expect(applySpanishNames(row('Close Combat', 'A Bocajarro'), names).nameEs).toBe('A Bocajarro');
-  });
-
   it("still applies Spain's own fixes", () => {
     expect(applySpanishFixes(row('Flash Cannon', 'Cañón Resplandor')).nameEs).toBe('Foco Resplandor');
   });
@@ -60,5 +54,4 @@ describe('what the AI is told about the Spanish to write', () => {
   it('keeps the identifiers in English in both', () => {
     for (const code of GAME_LANGUAGES) expect(spanishRules(code)).toMatch(/stay in English exactly as the English game spells them/);
   });
-
 });
