@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { getGameLanguage } from './game-language';
-import { applySpanishFixes, applySpanishNames, LATIN_AMERICAN_FIXES } from './spanish-fixes';
+import { applySpanishFixes, applySpanishNames } from './spanish-fixes';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient;
@@ -24,8 +24,7 @@ const base = new PrismaClient({
 let variants: Promise<Map<string, string>> | null = null;
 const latinAmericanNames = () =>
   (variants ??= base.nameVariant.findMany().then(
-    (rows) =>
-      new Map([...rows, ...LATIN_AMERICAN_FIXES].map((r) => [r.nameEn, r.nameEs419] as const)),
+    (rows) => new Map(rows.map((r) => [r.nameEn, r.nameEs419])),
     () => {
       variants = null;
       return new Map<string, string>();
